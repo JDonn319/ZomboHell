@@ -52,7 +52,7 @@ export const SandboxScreen: React.FC = () => {
     const camera = new THREE.PerspectiveCamera(
       75,
       window.innerWidth / window.innerHeight,
-      0.1,
+      0.05,
       100
     );
 
@@ -83,43 +83,30 @@ export const SandboxScreen: React.FC = () => {
     scene.add(sunLight);
     scene.add(sunLight.target);
 
-    const createPixelTexture = (w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void): THREE.CanvasTexture => {
+    const makeGridTexture = (): THREE.CanvasTexture => {
       const c = document.createElement('canvas');
-      c.width = w;
-      c.height = h;
+      c.width = 64;
+      c.height = 64;
       const cx = c.getContext('2d')!;
-      draw(cx);
+      cx.fillStyle = '#f4f6f8';
+      cx.fillRect(0, 0, 64, 64);
+      cx.fillStyle = '#8f9ba6';
+      cx.fillRect(0, 0, 64, 2);
+      cx.fillRect(0, 62, 64, 2);
+      cx.fillRect(0, 0, 2, 64);
+      cx.fillRect(62, 0, 2, 64);
+      for (let i = 8; i < 64; i += 8) {
+        cx.fillStyle = '#dbe2e8';
+        cx.fillRect(i, 2, 1, 60);
+        cx.fillRect(2, i, 60, 1);
+      }
       const t = new THREE.CanvasTexture(c);
       t.magFilter = THREE.NearestFilter;
       t.minFilter = THREE.NearestFilter;
       return t;
     };
 
-    const blockMaterial = new THREE.MeshLambertMaterial({
-      map: createPixelTexture(64, 64, (cx) => {
-        cx.fillStyle = '#f4f6f8';
-        cx.fillRect(0, 0, 64, 64);
-        cx.fillStyle = '#8f9ba6';
-        cx.fillRect(0, 0, 64, 2);
-        cx.fillRect(0, 62, 64, 2);
-        cx.fillRect(0, 0, 2, 64);
-        cx.fillRect(62, 0, 2, 64);
-        cx.fillStyle = '#b4bec8';
-        cx.fillRect(2, 2, 60, 1);
-        cx.fillRect(2, 2, 1, 60);
-        cx.fillStyle = '#dce2e8';
-        for (let x = 4; x < 60; x += 4) {
-          for (let y = 4; y < 60; y += 4) {
-            if ((x * 7 + y * 13) % 5 === 0) cx.fillRect(x, y, 2, 2);
-          }
-        }
-        for (let i = 8; i < 64; i += 8) {
-          cx.fillStyle = 'rgba(143, 155, 166, 0.35)';
-          cx.fillRect(i, 2, 1, 60);
-          cx.fillRect(2, i, 60, 1);
-        }
-      }),
-    });
+    const blockMaterial = new THREE.MeshLambertMaterial({ map: makeGridTexture() });
     const blockGeometry = new THREE.BoxGeometry(1, 1, 1);
 
     const chunkSize = 8;
@@ -176,60 +163,12 @@ export const SandboxScreen: React.FC = () => {
 
     updateChunks(0, 0);
 
-    const headMat = new THREE.MeshLambertMaterial({
-      map: createPixelTexture(24, 24, (cx) => {
-        cx.fillStyle = '#dfaf8e';
-        cx.fillRect(0, 0, 24, 24);
-        cx.fillStyle = '#d5a17e';
-        for (let x = 0; x < 24; x += 3) {
-          for (let y = 0; y < 24; y += 3) {
-            if ((x + y) % 6 === 0) cx.fillRect(x, y, 2, 2);
-          }
-        }
-      }),
-    });
-
-    const upperBodyMat = new THREE.MeshLambertMaterial({
-      map: createPixelTexture(28, 28, (cx) => {
-        cx.fillStyle = '#3a4e28';
-        cx.fillRect(0, 0, 28, 28);
-        cx.fillStyle = '#2b3b1e';
-        for (let x = 0; x < 28; x += 4) {
-          for (let y = 0; y < 28; y += 4) {
-            if ((x + y) % 8 === 0) cx.fillRect(x, y, 2, 2);
-          }
-        }
-      }),
-    });
-
-    const lowerBodyMat = new THREE.MeshLambertMaterial({
-      map: createPixelTexture(24, 18, (cx) => {
-        cx.fillStyle = '#232a22';
-        cx.fillRect(0, 0, 24, 18);
-        cx.fillStyle = '#b5832b';
-        cx.fillRect(8, 2, 8, 4);
-      }),
-    });
-
-    const armMat = new THREE.MeshLambertMaterial({
-      map: createPixelTexture(11, 40, (cx) => {
-        cx.fillStyle = '#3a4e28';
-        cx.fillRect(0, 0, 11, 20);
-        cx.fillStyle = '#222521';
-        cx.fillRect(0, 20, 11, 16);
-        cx.fillStyle = '#dfaf8e';
-        cx.fillRect(0, 36, 11, 4);
-      }),
-    });
-
-    const legMat = new THREE.MeshLambertMaterial({
-      map: createPixelTexture(12, 48, (cx) => {
-        cx.fillStyle = '#242c33';
-        cx.fillRect(0, 0, 12, 38);
-        cx.fillStyle = '#16191c';
-        cx.fillRect(0, 38, 12, 10);
-      }),
-    });
+    const headMat = new THREE.MeshLambertMaterial({ color: 0xdfaf8e });
+    const upperBodyMat = new THREE.MeshLambertMaterial({ color: 0x3a4e28 });
+    const lowerBodyMat = new THREE.MeshLambertMaterial({ color: 0x222622 });
+    const armMat = new THREE.MeshLambertMaterial({ color: 0x3a4e28 });
+    const gloveMat = new THREE.MeshLambertMaterial({ color: 0x1f221f });
+    const legMat = new THREE.MeshLambertMaterial({ color: 0x263038 });
 
     const playerBodyGroup = new THREE.Group();
 
@@ -282,73 +221,69 @@ export const SandboxScreen: React.FC = () => {
 
     scene.add(playerBodyGroup);
 
-    const buildSpawnGunModel = (): THREE.Group => {
-      const gunGroup = new THREE.Group();
-
-      const whiteCasingMat = new THREE.MeshLambertMaterial({
-        map: createPixelTexture(16, 16, (cx) => {
-          cx.fillStyle = '#e8edf2';
-          cx.fillRect(0, 0, 16, 16);
-          cx.fillStyle = '#c5d1dc';
-          cx.fillRect(0, 0, 16, 2);
-          cx.fillRect(0, 14, 16, 2);
-        }),
-      });
-
-      const darkMat = new THREE.MeshLambertMaterial({ color: 0x1f2429 });
-      const clawMat = new THREE.MeshLambertMaterial({ color: 0x546e7a });
+    const buildGunMesh = (): THREE.Group => {
+      const g = new THREE.Group();
+      const whiteMat = new THREE.MeshLambertMaterial({ color: 0xedf0f5 });
+      const darkMat = new THREE.MeshLambertMaterial({ color: 0x1a1e22 });
+      const clawMat = new THREE.MeshLambertMaterial({ color: 0x475560 });
       const glowMat = new THREE.MeshBasicMaterial({ color: 0x69f0ae });
 
-      const mainBody = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.1, 0.28), whiteCasingMat);
-      gunGroup.add(mainBody);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, 0.3), whiteMat);
+      g.add(body);
 
-      const coreGlow = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.12), glowMat);
-      coreGlow.position.set(0, 0.01, 0);
-      gunGroup.add(coreGlow);
+      const core = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.075, 0.12), glowMat);
+      core.position.set(0, 0.01, 0);
+      g.add(core);
 
-      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.12, 0.06), darkMat);
-      handle.position.set(0, -0.09, -0.07);
-      handle.rotation.x = -0.2;
-      gunGroup.add(handle);
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.13, 0.06), darkMat);
+      grip.position.set(0, -0.1, -0.07);
+      grip.rotation.x = -0.22;
+      g.add(grip);
 
-      const topClaw = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.08), clawMat);
-      topClaw.position.set(0, 0.06, 0.17);
-      topClaw.rotation.x = -0.3;
-      gunGroup.add(topClaw);
+      const clawTop = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.08), clawMat);
+      clawTop.position.set(0, 0.065, 0.18);
+      clawTop.rotation.x = -0.3;
+      g.add(clawTop);
 
-      const leftClaw = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.08), clawMat);
-      leftClaw.position.set(-0.05, -0.04, 0.17);
-      leftClaw.rotation.z = -0.6;
-      leftClaw.rotation.x = 0.2;
-      gunGroup.add(leftClaw);
+      const clawL = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.08), clawMat);
+      clawL.position.set(-0.055, -0.045, 0.18);
+      clawL.rotation.z = -0.6;
+      clawL.rotation.x = 0.2;
+      g.add(clawL);
 
-      const rightClaw = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.08), clawMat);
-      rightClaw.position.set(0.05, -0.04, 0.17);
-      rightClaw.rotation.z = 0.6;
-      rightClaw.rotation.x = 0.2;
-      gunGroup.add(rightClaw);
+      const clawR = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.08), clawMat);
+      clawR.position.set(0.055, -0.045, 0.18);
+      clawR.rotation.z = 0.6;
+      clawR.rotation.x = 0.2;
+      g.add(clawR);
 
-      return gunGroup;
+      return g;
     };
 
-    const thirdPersonGun = buildSpawnGunModel();
-    thirdPersonGun.position.set(0, -0.58, 0.14);
+    const thirdPersonGun = buildGunMesh();
+    thirdPersonGun.position.set(0, -0.56, 0.14);
     thirdPersonGun.rotation.set(0, 0, 0);
     rightArmPivot.add(thirdPersonGun);
 
-    const handRig = new THREE.Group();
-    const fpsArmMesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.62, 0.16), armMat);
-    fpsArmMesh.position.set(0, 0, 0);
-    fpsArmMesh.rotation.set(-1.48, 0, 0);
-    handRig.add(fpsArmMesh);
+    const fpsRig = new THREE.Group();
 
-    const fpsGun = buildSpawnGunModel();
-    fpsGun.position.set(-0.02, 0.02, -0.38);
+    const fpsRightArm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.54, 0.14), gloveMat);
+    fpsRightArm.position.set(0.24, -0.24, -0.28);
+    fpsRightArm.rotation.set(-1.25, -0.22, 0.15);
+    fpsRig.add(fpsRightArm);
+
+    const fpsGun = buildGunMesh();
+    fpsGun.position.set(0.08, -0.14, -0.42);
     fpsGun.rotation.set(0, 0, 0);
-    handRig.add(fpsGun);
+    fpsRig.add(fpsGun);
 
-    handRig.position.set(0.42, -0.28, -0.36);
-    camera.add(handRig);
+    const fpsLeftArm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.54, 0.14), gloveMat);
+    fpsLeftArm.position.set(-0.16, -0.24, -0.28);
+    fpsLeftArm.rotation.set(-1.35, 0.55, -0.35);
+    fpsRig.add(fpsLeftArm);
+
+    fpsRig.position.set(0, 0, 0);
+    camera.add(fpsRig);
     scene.add(camera);
 
     let animationFrameId: number;
@@ -369,7 +304,7 @@ export const SandboxScreen: React.FC = () => {
       const isGunEquipped = selectedSlotRef.current === 0;
 
       const targetEquip = isGunEquipped ? 1 : 0;
-      gunEquipProgressRef.current += (targetEquip - gunEquipProgressRef.current) * (dt * 7);
+      gunEquipProgressRef.current += (targetEquip - gunEquipProgressRef.current) * (dt * 8);
       const equipP = gunEquipProgressRef.current;
 
       thirdPersonGun.visible = equipP > 0.05;
@@ -401,11 +336,6 @@ export const SandboxScreen: React.FC = () => {
 
       const pos = playerPosRef.current;
 
-      const dipOffset = (1 - equipP) * 0.35;
-      handRig.position.x = 0.42 + sway.x;
-      handRig.position.y = -0.28 + sway.y - dipOffset;
-      handRig.position.z = -0.36;
-
       if (moveDir.lengthSq() > 0.001) {
         moveDir.normalize();
         pos.x += moveDir.x * speed * dt;
@@ -436,25 +366,41 @@ export const SandboxScreen: React.FC = () => {
         if (equipP < 0.2) {
           leftArmPivot.rotation.x *= 0.8;
           rightArmPivot.rotation.x *= 0.8;
+          leftArmPivot.rotation.y = 0;
+          leftArmPivot.rotation.z = 0;
+          rightArmPivot.rotation.y = 0;
+          rightArmPivot.rotation.z = 0;
         }
       }
 
       if (equipP >= 0.2) {
-        const holdRightX = -1.25;
-        const holdRightY = -0.22;
-        const holdRightZ = 0.05;
+        const holdRightX = -1.15;
+        const holdRightY = -0.38;
+        const holdRightZ = 0.1;
 
-        const holdLeftX = -1.4;
-        const holdLeftY = 0.52;
-        const holdLeftZ = -0.25;
+        const holdLeftX = -1.25;
+        const holdLeftY = 0.55;
+        const holdLeftZ = -0.2;
 
-        rightArmPivot.rotation.x = THREE.MathUtils.lerp(rightArmPivot.rotation.x, holdRightX, equipP * 0.15);
-        rightArmPivot.rotation.y = THREE.MathUtils.lerp(rightArmPivot.rotation.y, holdRightY, equipP * 0.15);
-        rightArmPivot.rotation.z = THREE.MathUtils.lerp(rightArmPivot.rotation.z, holdRightZ, equipP * 0.15);
+        rightArmPivot.rotation.x = THREE.MathUtils.lerp(rightArmPivot.rotation.x, holdRightX, equipP * 0.2);
+        rightArmPivot.rotation.y = THREE.MathUtils.lerp(rightArmPivot.rotation.y, holdRightY, equipP * 0.2);
+        rightArmPivot.rotation.z = THREE.MathUtils.lerp(rightArmPivot.rotation.z, holdRightZ, equipP * 0.2);
 
-        leftArmPivot.rotation.x = THREE.MathUtils.lerp(leftArmPivot.rotation.x, holdLeftX, equipP * 0.15);
-        leftArmPivot.rotation.y = THREE.MathUtils.lerp(leftArmPivot.rotation.y, holdLeftY, equipP * 0.15);
-        leftArmPivot.rotation.z = THREE.MathUtils.lerp(leftArmPivot.rotation.z, holdLeftZ, equipP * 0.15);
+        leftArmPivot.rotation.x = THREE.MathUtils.lerp(leftArmPivot.rotation.x, holdLeftX, equipP * 0.2);
+        leftArmPivot.rotation.y = THREE.MathUtils.lerp(leftArmPivot.rotation.y, holdLeftY, equipP * 0.2);
+        leftArmPivot.rotation.z = THREE.MathUtils.lerp(leftArmPivot.rotation.z, holdLeftZ, equipP * 0.2);
+      }
+
+      const dipY = (1 - equipP) * 0.45;
+      fpsRig.position.set(sway.x, sway.y - dipY, 0);
+
+      fpsLeftArm.position.y = -0.24 - (1 - equipP) * 0.6;
+      if (equipP < 0.2) {
+        fpsRightArm.position.set(0.36, -0.26, -0.28);
+        fpsRightArm.rotation.set(-1.48, 0, 0);
+      } else {
+        fpsRightArm.position.set(0.24, -0.24, -0.28);
+        fpsRightArm.rotation.set(-1.25, -0.22, 0.15);
       }
 
       if (isFlyingRef.current) {
@@ -487,32 +433,39 @@ export const SandboxScreen: React.FC = () => {
         camera.rotation.z = rollLeanRef.current;
 
         headMesh.visible = false;
+        leftArmPivot.visible = false;
         rightArmPivot.visible = false;
-        handRig.visible = true;
+        fpsRig.visible = true;
       } else if (currentMode === 1) {
         const dist = 3.6;
         const camX = pos.x + Math.sin(angles.yaw) * Math.cos(angles.pitch) * dist;
-        const camY = pos.y + Math.sin(-angles.pitch) * dist + 0.5;
+        let camY = pos.y + Math.sin(-angles.pitch) * dist + 0.5;
         const camZ = pos.z + Math.cos(angles.yaw) * Math.cos(angles.pitch) * dist;
+
+        if (camY < 0.75) camY = 0.75;
 
         camera.position.set(camX, camY, camZ);
         camera.lookAt(pos.x, pos.y - 0.2, pos.z);
 
         headMesh.visible = true;
+        leftArmPivot.visible = true;
         rightArmPivot.visible = true;
-        handRig.visible = false;
+        fpsRig.visible = false;
       } else {
         const dist = 3.6;
         const camX = pos.x - Math.sin(angles.yaw) * Math.cos(angles.pitch) * dist;
-        const camY = pos.y - Math.sin(-angles.pitch) * dist + 0.5;
+        let camY = pos.y - Math.sin(-angles.pitch) * dist + 0.5;
         const camZ = pos.z - Math.cos(angles.yaw) * Math.cos(angles.pitch) * dist;
+
+        if (camY < 0.75) camY = 0.75;
 
         camera.position.set(camX, camY, camZ);
         camera.lookAt(pos.x, pos.y - 0.2, pos.z);
 
         headMesh.visible = true;
+        leftArmPivot.visible = true;
         rightArmPivot.visible = true;
-        handRig.visible = false;
+        fpsRig.visible = false;
       }
 
       sunLight.position.set(pos.x + 30, 45, pos.z + 20);
