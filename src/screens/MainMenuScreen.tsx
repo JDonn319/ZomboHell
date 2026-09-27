@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { Volume2, VolumeX, Globe } from 'lucide-react';
 
-export const MainMenuScreen: React.FC = () => {
+interface MainMenuScreenProps {
+  onPlay: () => void;
+  onOpenSandbox: () => void;
+}
+
+export const MainMenuScreen: React.FC<MainMenuScreenProps> = ({ onPlay, onOpenSandbox }) => {
   const [isMuted, setIsMuted] = useState(false);
-  const [activeButton, setActiveButton] = useState<'play' | 'hangar' | 'leaders'>('play');
+  const [activeButton, setActiveButton] = useState<'play' | 'sandbox' | 'leaders'>('play');
 
   const containerStyle: React.CSSProperties = {
     position: 'fixed',
@@ -165,21 +170,27 @@ export const MainMenuScreen: React.FC = () => {
 
       <div style={logoSectionStyle}>
         <div style={ambientGlowStyle} />
-        <img src="/gamelogo.png" alt="7Days-ZDays Logo" style={logoStyle} />
+        <img src="/gamelogo.png" alt="ZomboHell Logo" style={logoStyle} />
       </div>
 
       <div style={buttonListStyle}>
         <div
           style={activeButton === 'play' ? activeButtonStyle : inactiveButtonStyle}
-          onClick={() => setActiveButton('play')}
+          onClick={() => {
+            setActiveButton('play');
+            onPlay();
+          }}
         >
           ИГРАТЬ
         </div>
         <div
-          style={activeButton === 'hangar' ? activeButtonStyle : inactiveButtonStyle}
-          onClick={() => setActiveButton('hangar')}
+          style={activeButton === 'sandbox' ? activeButtonStyle : inactiveButtonStyle}
+          onClick={() => {
+            setActiveButton('sandbox');
+            onOpenSandbox();
+          }}
         >
-          СКЛАД
+          ПЕСОЧНИЦА
         </div>
         <div
           style={activeButton === 'leaders' ? activeButtonStyle : inactiveButtonStyle}
