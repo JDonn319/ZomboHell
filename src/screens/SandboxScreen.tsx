@@ -9,8 +9,15 @@ export const SandboxScreen: React.FC = () => {
   const isFlyingRef = useRef(false);
   isFlyingRef.current = isFlying;
 
+  const verticalVelocityRef = useRef(0);
+  const isGroundedRef = useRef(true);
+
   const moveVectorRef = useRef({ x: 0, z: 0, y: 0 });
   const cameraAnglesRef = useRef({ yaw: 0, pitch: 0 });
+
+  const prevYawRef = useRef(0);
+  const prevPitchRef = useRef(0);
+  const handSwayRef = useRef({ x: 0, y: 0 });
 
   const lastJumpTapRef = useRef(0);
 
@@ -27,8 +34,8 @@ export const SandboxScreen: React.FC = () => {
     if (!container) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#0c140a');
-    scene.fog = new THREE.Fog('#0c140a', 20, 60);
+    scene.background = new THREE.Color('#b8dcfa');
+    scene.fog = new THREE.Fog('#b8dcfa', 24, 65);
 
     const camera = new THREE.PerspectiveCamera(
       75,
@@ -38,35 +45,50 @@ export const SandboxScreen: React.FC = () => {
     );
     camera.position.set(0, 2.0, 0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: false,
+      powerPreference: 'high-performance',
+    });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
-    scene.add(ambientLight);
+    const hemiLight = new THREE.HemisphereLight('#ffffff', '#b0c4de', 0.65);
+    scene.add(hemiLight);
 
-    const dirLight = new THREE.DirectionalLight(0xd4ecd5, 1.2);
-    dirLight.position.set(20, 40, 20);
-    scene.add(dirLight);
+    const sunLight = new THREE.DirectionalLight('#fffaf0', 1.35);
+    sunLight.position.set(25, 45, 20);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 1024;
+    sunLight.shadow.mapSize.height = 1024;
+    sunLight.shadow.camera.near = 1;
+    sunLight.shadow.camera.far = 90;
+    sunLight.shadow.camera.left = -30;
+    sunLight.shadow.camera.right = 30;
+    sunLight.shadow.camera.top = 30;
+    sunLight.shadow.camera.bottom = -30;
+    sunLight.shadow.bias = -0.0005;
+    scene.add(sunLight);
 
     const canvas = document.createElement('canvas');
     canvas.width = 64;
     canvas.height = 64;
     const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#e8eee5';
+    ctx.fillStyle = '#f5f7fa';
     ctx.fillRect(0, 0, 64, 64);
 
-    ctx.fillStyle = '#b0b8ac';
-    ctx.fillRect(0, 0, 64, 4);
-    ctx.fillRect(0, 60, 64, 4);
-    ctx.fillRect(0, 0, 4, 64);
-    ctx.fillRect(60, 0, 4, 64);
+    ctx.fillStyle = '#a8b2bc';
+    ctx.fillRect(0, 0, 64, 2);
+    ctx.fillRect(0, 62, 64, 2);
+    ctx.fillRect(0, 0, 2, 64);
+    ctx.fillRect(62, 0, 2, 64);
 
-    for (let i = 4; i < 60; i += 8) {
-      for (let j = 4; j < 60; j += 8) {
+    for (let i = 2; i < 62; i += 8) {
+      for (let j = 2; j < 62; j += 8) {
         if ((i + j) % 16 === 0) {
-          ctx.fillStyle = '#dde3da';
+          ctx.fillStyle = '#e8ecf2';
           ctx.fillRect(i, j, 8, 8);
         }
       }
@@ -85,8 +107,9 @@ export const SandboxScreen: React.FC = () => {
     const totalBlocks = sideCount * sideCount;
 
     const instancedFloor = new THREE.InstancedMesh(blockGeometry, blockMaterial, totalBlocks);
-    const dummy = new THREE.Object3D();
+    instancedFloor.receiveShadow = true;
 
+    const dummy = new THREE.Object3D();
     let idx = 0;
     const halfSide = Math.floor(sideCount / 2);
     for (let x = -halfSide; x < halfSide; x++) {
@@ -99,30 +122,34 @@ export const SandboxScreen: React.FC = () => {
     instancedFloor.instanceMatrix.needsUpdate = true;
     scene.add(instancedFloor);
 
-    const handGeometry = new THREE.BoxGeometry(0.24, 0.6, 0.24);
     const handCanvas = document.createElement('canvas');
     handCanvas.width = 16;
     handCanvas.height = 16;
-    const handCtx = handCanvas.getContext('2d')!;
-    handCtx.fillStyle = '#5c8a32';
-    handCtx.fillRect(0, 0, 16, 16);
-    handCtx.fillStyle = '#426821';
-    handCtx.fillRect(0, 8, 16, 8);
+    const hCtx = handCanvas.getContext('2d')!;
+
+    hCtx.fillStyle = '#3a506b';
+    hCtx.fillRect(0, 0, 16, 6);
+
+    hCtx.fillStyle = '#e5a882';
+    hCtx.fillRect(0, 6, 16, 10);
+    hCtx.fillStyle = '#d4946f';
+    hCtx.fillRect(0, 12, 16, 4);
 
     const handTexture = new THREE.CanvasTexture(handCanvas);
     handTexture.magFilter = THREE.NearestFilter;
     handTexture.minFilter = THREE.NearestFilter;
 
-    const handMaterial = new THREE.MeshLambertMaterial({ map: handTexture });
-    const handMesh = new THREE.Mesh(handGeometry, handMaterial);
-    handMesh.position.set(0.35, -0.35, -0.6);
-    handMesh.rotation.set(-0.35, -0.2, 0.2);
+    const handGeo = new THREE.BoxGeometry(0.2, 0.55, 0.2);
+    const handMat = new THREE.MeshLambertMaterial({ map: handTexture });
+    const handMesh = new THREE.Mesh(handGeo, handMat);
+
+    handMesh.position.set(0.36, -0.34, -0.52);
+    handMesh.rotation.set(-0.35, -0.15, 0.12);
     camera.add(handMesh);
     scene.add(camera);
 
     let animationFrameId: number;
     let lastTime = performance.now();
-    let verticalVelocity = 0;
     let walkCycle = 0;
 
     const animate = () => {
@@ -137,8 +164,17 @@ export const SandboxScreen: React.FC = () => {
       camera.rotation.y = angles.yaw;
       camera.rotation.x = angles.pitch;
 
+      const deltaYaw = angles.yaw - prevYawRef.current;
+      const deltaPitch = angles.pitch - prevPitchRef.current;
+      prevYawRef.current = angles.yaw;
+      prevPitchRef.current = angles.pitch;
+
+      const sway = handSwayRef.current;
+      sway.x += (-deltaYaw * 0.35 - sway.x) * (dt * 12);
+      sway.y += (-deltaPitch * 0.35 - sway.y) * (dt * 12);
+
       const move = moveVectorRef.current;
-      const speed = isFlyingRef.current ? 8.0 : 4.5;
+      const speed = isFlyingRef.current ? 9.0 : 4.6;
 
       const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), angles.yaw);
       const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), angles.yaw);
@@ -147,30 +183,38 @@ export const SandboxScreen: React.FC = () => {
         .addScaledVector(forward, -move.z)
         .addScaledVector(right, move.x);
 
+      let bobX = 0;
+      let bobY = 0;
+
       if (moveDir.lengthSq() > 0.001) {
         moveDir.normalize();
         camera.position.addScaledVector(moveDir, speed * dt);
-        walkCycle += dt * 9;
-        handMesh.position.y = -0.35 + Math.sin(walkCycle) * 0.03;
-        handMesh.position.x = 0.35 + Math.cos(walkCycle) * 0.02;
-      } else {
-        handMesh.position.y = -0.35;
-        handMesh.position.x = 0.35;
+
+        walkCycle += dt * 8.5;
+        bobY = Math.sin(walkCycle) * 0.015;
+        bobX = Math.cos(walkCycle * 0.5) * 0.01;
       }
+
+      handMesh.position.x = 0.36 + sway.x + bobX;
+      handMesh.position.y = -0.34 + sway.y + bobY;
+      handMesh.position.z = -0.52;
 
       if (isFlyingRef.current) {
         camera.position.y += move.y * speed * dt;
-        verticalVelocity = 0;
+        verticalVelocityRef.current = 0;
         if (camera.position.y < 2.0) {
           camera.position.y = 2.0;
         }
       } else {
-        verticalVelocity -= 18.0 * dt;
-        camera.position.y += verticalVelocity * dt;
+        verticalVelocityRef.current -= 22.0 * dt;
+        camera.position.y += verticalVelocityRef.current * dt;
 
         if (camera.position.y <= 2.0) {
           camera.position.y = 2.0;
-          verticalVelocity = 0;
+          verticalVelocityRef.current = 0;
+          isGroundedRef.current = true;
+        } else {
+          isGroundedRef.current = false;
         }
       }
 
@@ -263,12 +307,22 @@ export const SandboxScreen: React.FC = () => {
     }
   };
 
-  const handleJumpPress = () => {
-    const now = Date.now();
-    if (now - lastJumpTapRef.current < 300) {
+  const triggerJumpOrToggleFlight = (e: React.TouchEvent | React.MouseEvent) => {
+    e.stopPropagation();
+    const now = performance.now();
+    const timeSinceLastTap = now - lastJumpTapRef.current;
+
+    if (timeSinceLastTap < 350) {
       setIsFlying((prev) => !prev);
+      moveVectorRef.current.y = 0;
+      lastJumpTapRef.current = 0;
+    } else {
+      if (isGroundedRef.current && !isFlyingRef.current) {
+        verticalVelocityRef.current = 7.8;
+        isGroundedRef.current = false;
+      }
+      lastJumpTapRef.current = now;
     }
-    lastJumpTapRef.current = now;
   };
 
   const overlayTouchLayerStyle: React.CSSProperties = {
@@ -280,33 +334,35 @@ export const SandboxScreen: React.FC = () => {
 
   const joystickBaseStyle: React.CSSProperties = {
     position: 'fixed',
-    bottom: '40px',
-    left: '40px',
+    bottom: '36px',
+    left: '36px',
     width: '110px',
     height: '110px',
     borderRadius: '50%',
-    backgroundColor: 'rgba(10, 16, 8, 0.45)',
-    border: '2px solid rgba(110, 175, 55, 0.35)',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    backdropFilter: 'blur(3px)',
+    border: '2px solid rgba(255, 255, 255, 0.65)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 20,
     pointerEvents: 'none',
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
   };
 
   const joystickKnobStyle: React.CSSProperties = {
     width: '46px',
     height: '46px',
     borderRadius: '50%',
-    backgroundColor: isJoystickActive ? '#6ea838' : 'rgba(110, 168, 56, 0.65)',
+    backgroundColor: isJoystickActive ? '#ffffff' : 'rgba(255, 255, 255, 0.85)',
     transform: `translate(${joystickThumb.x}px, ${joystickThumb.y}px)`,
     transition: isJoystickActive ? 'none' : 'transform 0.15s ease-out',
-    boxShadow: '0 0 10px rgba(0,0,0,0.5)',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
   };
 
   const rightControlsContainerStyle: React.CSSProperties = {
     position: 'fixed',
-    bottom: '40px',
+    bottom: '36px',
     right: '30px',
     display: 'flex',
     flexDirection: 'column',
@@ -319,20 +375,23 @@ export const SandboxScreen: React.FC = () => {
     width: '56px',
     height: '56px',
     borderRadius: '50%',
-    backgroundColor: 'rgba(12, 18, 9, 0.75)',
-    border: '2px solid #5a8e2b',
-    color: '#9ad45b',
-    fontSize: '20px',
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    backdropFilter: 'blur(4px)',
+    border: '2px solid rgba(255, 255, 255, 0.85)',
+    color: '#ffffff',
+    fontSize: '22px',
     fontWeight: 900,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
     userSelect: 'none',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+    textShadow: '0 1px 3px rgba(0, 0, 0, 0.35)',
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000000', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', inset: 0, backgroundColor: '#b8dcfa', overflow: 'hidden' }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
 
       <div
@@ -352,27 +411,51 @@ export const SandboxScreen: React.FC = () => {
           <>
             <div
               style={roundActionButtonStyle}
-              onTouchStart={() => (moveVectorRef.current.y = 1)}
-              onTouchEnd={() => (moveVectorRef.current.y = 0)}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                moveVectorRef.current.y = 1;
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                moveVectorRef.current.y = 0;
+              }}
             >
               ▲
             </div>
             <div
               style={roundActionButtonStyle}
-              onTouchStart={() => (moveVectorRef.current.y = -1)}
-              onTouchEnd={() => (moveVectorRef.current.y = 0)}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                moveVectorRef.current.y = -1;
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                moveVectorRef.current.y = 0;
+              }}
             >
               ▼
             </div>
             <div
-              style={{ ...roundActionButtonStyle, fontSize: '11px', height: '36px', borderRadius: '18px' }}
-              onClick={handleJumpPress}
+              style={{
+                ...roundActionButtonStyle,
+                fontSize: '11px',
+                height: '36px',
+                borderRadius: '18px',
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                setIsFlying(false);
+                moveVectorRef.current.y = 0;
+              }}
             >
               СТОП
             </div>
           </>
         ) : (
-          <div style={roundActionButtonStyle} onClick={handleJumpPress}>
+          <div
+            style={roundActionButtonStyle}
+            onTouchStart={triggerJumpOrToggleFlight}
+          >
             ▲
           </div>
         )}
