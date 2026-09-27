@@ -5,6 +5,10 @@ import { Hotbar } from '../ui/Hotbar';
 export const SandboxScreen: React.FC = () => {
   const mountRef = useRef<HTMLDivElement | null>(null);
 
+  const [selectedSlot, setSelectedSlot] = useState<number>(0);
+  const selectedSlotRef = useRef<number>(0);
+  selectedSlotRef.current = selectedSlot;
+
   const [cameraMode, setCameraMode] = useState<0 | 1 | 2>(0);
   const cameraModeRef = useRef<0 | 1 | 2>(0);
   cameraModeRef.current = cameraMode;
@@ -26,6 +30,7 @@ export const SandboxScreen: React.FC = () => {
   const rollLeanRef = useRef<number>(0);
   const pitchLeanRef = useRef<number>(0);
 
+  const gunEquipProgressRef = useRef<number>(0);
   const lastJumpTapRef = useRef<number>(0);
 
   const joystickTouchIdRef = useRef<number | null>(null);
@@ -78,39 +83,43 @@ export const SandboxScreen: React.FC = () => {
     scene.add(sunLight);
     scene.add(sunLight.target);
 
-    const createFloorTexture = (): THREE.CanvasTexture => {
+    const createPixelTexture = (w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void): THREE.CanvasTexture => {
       const c = document.createElement('canvas');
-      c.width = 64;
-      c.height = 64;
+      c.width = w;
+      c.height = h;
       const cx = c.getContext('2d')!;
-      cx.fillStyle = '#f4f6f8';
-      cx.fillRect(0, 0, 64, 64);
-      cx.fillStyle = '#8f9ba6';
-      cx.fillRect(0, 0, 64, 2);
-      cx.fillRect(0, 62, 64, 2);
-      cx.fillRect(0, 0, 2, 64);
-      cx.fillRect(62, 0, 2, 64);
-      cx.fillStyle = '#b4bec8';
-      cx.fillRect(2, 2, 60, 1);
-      cx.fillRect(2, 2, 1, 60);
-      cx.fillStyle = '#dce2e8';
-      for (let x = 4; x < 60; x += 4) {
-        for (let y = 4; y < 60; y += 4) {
-          if ((x * 7 + y * 13) % 5 === 0) cx.fillRect(x, y, 2, 2);
-        }
-      }
-      for (let i = 8; i < 64; i += 8) {
-        cx.fillStyle = 'rgba(143, 155, 166, 0.35)';
-        cx.fillRect(i, 2, 1, 60);
-        cx.fillRect(2, i, 60, 1);
-      }
+      draw(cx);
       const t = new THREE.CanvasTexture(c);
       t.magFilter = THREE.NearestFilter;
       t.minFilter = THREE.NearestFilter;
       return t;
     };
 
-    const blockMaterial = new THREE.MeshLambertMaterial({ map: createFloorTexture() });
+    const blockMaterial = new THREE.MeshLambertMaterial({
+      map: createPixelTexture(64, 64, (cx) => {
+        cx.fillStyle = '#f4f6f8';
+        cx.fillRect(0, 0, 64, 64);
+        cx.fillStyle = '#8f9ba6';
+        cx.fillRect(0, 0, 64, 2);
+        cx.fillRect(0, 62, 64, 2);
+        cx.fillRect(0, 0, 2, 64);
+        cx.fillRect(62, 0, 2, 64);
+        cx.fillStyle = '#b4bec8';
+        cx.fillRect(2, 2, 60, 1);
+        cx.fillRect(2, 2, 1, 60);
+        cx.fillStyle = '#dce2e8';
+        for (let x = 4; x < 60; x += 4) {
+          for (let y = 4; y < 60; y += 4) {
+            if ((x * 7 + y * 13) % 5 === 0) cx.fillRect(x, y, 2, 2);
+          }
+        }
+        for (let i = 8; i < 64; i += 8) {
+          cx.fillStyle = 'rgba(143, 155, 166, 0.35)';
+          cx.fillRect(i, 2, 1, 60);
+          cx.fillRect(2, i, 60, 1);
+        }
+      }),
+    });
     const blockGeometry = new THREE.BoxGeometry(1, 1, 1);
 
     const chunkSize = 8;
@@ -167,89 +176,60 @@ export const SandboxScreen: React.FC = () => {
 
     updateChunks(0, 0);
 
-    const createBeigeHeadTexture = (): THREE.CanvasTexture => {
-      const c = document.createElement('canvas');
-      c.width = 64;
-      c.height = 64;
-      const cx = c.getContext('2d')!;
-      cx.fillStyle = '#dfaf8e';
-      cx.fillRect(0, 0, 64, 64);
-      cx.fillStyle = '#d5a17e';
-      for (let x = 0; x < 64; x += 8) {
-        for (let y = 0; y < 64; y += 8) {
-          if ((x * 3 + y * 5) % 4 === 0) cx.fillRect(x, y, 4, 4);
+    const headMat = new THREE.MeshLambertMaterial({
+      map: createPixelTexture(24, 24, (cx) => {
+        cx.fillStyle = '#dfaf8e';
+        cx.fillRect(0, 0, 24, 24);
+        cx.fillStyle = '#d5a17e';
+        for (let x = 0; x < 24; x += 3) {
+          for (let y = 0; y < 24; y += 3) {
+            if ((x + y) % 6 === 0) cx.fillRect(x, y, 2, 2);
+          }
         }
-      }
-      cx.fillStyle = '#e9bd9d';
-      for (let x = 4; x < 64; x += 8) {
-        for (let y = 4; y < 64; y += 8) {
-          if ((x * 7 + y * 2) % 3 === 0) cx.fillRect(x, y, 4, 4);
+      }),
+    });
+
+    const upperBodyMat = new THREE.MeshLambertMaterial({
+      map: createPixelTexture(28, 28, (cx) => {
+        cx.fillStyle = '#3a4e28';
+        cx.fillRect(0, 0, 28, 28);
+        cx.fillStyle = '#2b3b1e';
+        for (let x = 0; x < 28; x += 4) {
+          for (let y = 0; y < 28; y += 4) {
+            if ((x + y) % 8 === 0) cx.fillRect(x, y, 2, 2);
+          }
         }
-      }
-      const t = new THREE.CanvasTexture(c);
-      t.magFilter = THREE.NearestFilter;
-      t.minFilter = THREE.NearestFilter;
-      return t;
-    };
+      }),
+    });
 
-    const createUpperBodyTexture = (): THREE.CanvasTexture => {
-      const c = document.createElement('canvas');
-      c.width = 64;
-      c.height = 64;
-      const cx = c.getContext('2d')!;
-      cx.fillStyle = '#3a4e28';
-      cx.fillRect(0, 0, 64, 64);
-      cx.fillStyle = '#2b3b1e';
-      for (let x = 0; x < 64; x += 8) {
-        for (let y = 0; y < 64; y += 8) {
-          if ((x + y) % 16 === 0) cx.fillRect(x, y, 4, 4);
-        }
-      }
-      const t = new THREE.CanvasTexture(c);
-      t.magFilter = THREE.NearestFilter;
-      t.minFilter = THREE.NearestFilter;
-      return t;
-    };
+    const lowerBodyMat = new THREE.MeshLambertMaterial({
+      map: createPixelTexture(24, 18, (cx) => {
+        cx.fillStyle = '#232a22';
+        cx.fillRect(0, 0, 24, 18);
+        cx.fillStyle = '#b5832b';
+        cx.fillRect(8, 2, 8, 4);
+      }),
+    });
 
-    const createLowerBodyTexture = (): THREE.CanvasTexture => {
-      const c = document.createElement('canvas');
-      c.width = 64;
-      c.height = 64;
-      const cx = c.getContext('2d')!;
-      cx.fillStyle = '#232a22';
-      cx.fillRect(0, 0, 64, 64);
-      cx.fillStyle = '#b5832b';
-      cx.fillRect(24, 8, 16, 10);
-      const t = new THREE.CanvasTexture(c);
-      t.magFilter = THREE.NearestFilter;
-      t.minFilter = THREE.NearestFilter;
-      return t;
-    };
+    const armMat = new THREE.MeshLambertMaterial({
+      map: createPixelTexture(11, 40, (cx) => {
+        cx.fillStyle = '#3a4e28';
+        cx.fillRect(0, 0, 11, 20);
+        cx.fillStyle = '#222521';
+        cx.fillRect(0, 20, 11, 16);
+        cx.fillStyle = '#dfaf8e';
+        cx.fillRect(0, 36, 11, 4);
+      }),
+    });
 
-    const createLimbTexture = (c1: string, c2: string): THREE.CanvasTexture => {
-      const c = document.createElement('canvas');
-      c.width = 64;
-      c.height = 64;
-      const cx = c.getContext('2d')!;
-      cx.fillStyle = c1;
-      cx.fillRect(0, 0, 64, 64);
-      cx.fillStyle = c2;
-      for (let x = 0; x < 64; x += 8) {
-        for (let y = 0; y < 64; y += 8) {
-          if ((x + y) % 16 === 0) cx.fillRect(x, y, 4, 4);
-        }
-      }
-      const t = new THREE.CanvasTexture(c);
-      t.magFilter = THREE.NearestFilter;
-      t.minFilter = THREE.NearestFilter;
-      return t;
-    };
-
-    const headMat = new THREE.MeshLambertMaterial({ map: createBeigeHeadTexture() });
-    const upperBodyMat = new THREE.MeshLambertMaterial({ map: createUpperBodyTexture() });
-    const lowerBodyMat = new THREE.MeshLambertMaterial({ map: createLowerBodyTexture() });
-    const armMat = new THREE.MeshLambertMaterial({ map: createLimbTexture('#3a4e28', '#2a3a1d') });
-    const legMat = new THREE.MeshLambertMaterial({ map: createLimbTexture('#242c33', '#192025') });
+    const legMat = new THREE.MeshLambertMaterial({
+      map: createPixelTexture(12, 48, (cx) => {
+        cx.fillStyle = '#242c33';
+        cx.fillRect(0, 0, 12, 38);
+        cx.fillStyle = '#16191c';
+        cx.fillRect(0, 38, 12, 10);
+      }),
+    });
 
     const playerBodyGroup = new THREE.Group();
 
@@ -302,32 +282,73 @@ export const SandboxScreen: React.FC = () => {
 
     scene.add(playerBodyGroup);
 
-    const createFpsArmTexture = (): THREE.CanvasTexture => {
-      const c = document.createElement('canvas');
-      c.width = 64;
-      c.height = 64;
-      const cx = c.getContext('2d')!;
-      cx.fillStyle = '#3a4e28';
-      cx.fillRect(0, 0, 64, 30);
-      cx.fillStyle = '#28381b';
-      cx.fillRect(0, 26, 64, 4);
-      cx.fillStyle = '#1c1f1b';
-      cx.fillRect(0, 30, 64, 24);
-      cx.fillStyle = '#dfaf8e';
-      cx.fillRect(0, 54, 64, 10);
-      cx.fillStyle = '#c79676';
-      cx.fillRect(0, 54, 64, 2);
-      const t = new THREE.CanvasTexture(c);
-      t.magFilter = THREE.NearestFilter;
-      t.minFilter = THREE.NearestFilter;
-      return t;
+    const buildSpawnGunModel = (): THREE.Group => {
+      const gunGroup = new THREE.Group();
+
+      const whiteCasingMat = new THREE.MeshLambertMaterial({
+        map: createPixelTexture(16, 16, (cx) => {
+          cx.fillStyle = '#e8edf2';
+          cx.fillRect(0, 0, 16, 16);
+          cx.fillStyle = '#c5d1dc';
+          cx.fillRect(0, 0, 16, 2);
+          cx.fillRect(0, 14, 16, 2);
+        }),
+      });
+
+      const darkMat = new THREE.MeshLambertMaterial({ color: 0x1f2429 });
+      const clawMat = new THREE.MeshLambertMaterial({ color: 0x546e7a });
+      const glowMat = new THREE.MeshBasicMaterial({ color: 0x69f0ae });
+
+      const mainBody = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.1, 0.28), whiteCasingMat);
+      gunGroup.add(mainBody);
+
+      const coreGlow = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.12), glowMat);
+      coreGlow.position.set(0, 0.01, 0);
+      gunGroup.add(coreGlow);
+
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.12, 0.06), darkMat);
+      handle.position.set(0, -0.09, -0.07);
+      handle.rotation.x = -0.2;
+      gunGroup.add(handle);
+
+      const topClaw = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.08), clawMat);
+      topClaw.position.set(0, 0.06, 0.17);
+      topClaw.rotation.x = -0.3;
+      gunGroup.add(topClaw);
+
+      const leftClaw = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.08), clawMat);
+      leftClaw.position.set(-0.05, -0.04, 0.17);
+      leftClaw.rotation.z = -0.6;
+      leftClaw.rotation.x = 0.2;
+      gunGroup.add(leftClaw);
+
+      const rightClaw = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.08), clawMat);
+      rightClaw.position.set(0.05, -0.04, 0.17);
+      rightClaw.rotation.z = 0.6;
+      rightClaw.rotation.x = 0.2;
+      gunGroup.add(rightClaw);
+
+      return gunGroup;
     };
 
-    const fpsArmMat = new THREE.MeshLambertMaterial({ map: createFpsArmTexture() });
-    const handMesh = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.65, 0.18), fpsArmMat);
-    handMesh.position.set(0.32, -0.28, -0.42);
-    handMesh.rotation.set(-0.65, 0.35, -0.15);
-    camera.add(handMesh);
+    const thirdPersonGun = buildSpawnGunModel();
+    thirdPersonGun.position.set(0, -0.58, 0.14);
+    thirdPersonGun.rotation.set(0, 0, 0);
+    rightArmPivot.add(thirdPersonGun);
+
+    const handRig = new THREE.Group();
+    const fpsArmMesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.62, 0.16), armMat);
+    fpsArmMesh.position.set(0, 0, 0);
+    fpsArmMesh.rotation.set(-1.48, 0, 0);
+    handRig.add(fpsArmMesh);
+
+    const fpsGun = buildSpawnGunModel();
+    fpsGun.position.set(-0.02, 0.02, -0.38);
+    fpsGun.rotation.set(0, 0, 0);
+    handRig.add(fpsGun);
+
+    handRig.position.set(0.42, -0.28, -0.36);
+    camera.add(handRig);
     scene.add(camera);
 
     let animationFrameId: number;
@@ -345,6 +366,14 @@ export const SandboxScreen: React.FC = () => {
 
       const angles = cameraAnglesRef.current;
       const currentMode = cameraModeRef.current;
+      const isGunEquipped = selectedSlotRef.current === 0;
+
+      const targetEquip = isGunEquipped ? 1 : 0;
+      gunEquipProgressRef.current += (targetEquip - gunEquipProgressRef.current) * (dt * 7);
+      const equipP = gunEquipProgressRef.current;
+
+      thirdPersonGun.visible = equipP > 0.05;
+      fpsGun.visible = equipP > 0.05;
 
       const deltaYaw = angles.yaw - prevYawRef.current;
       const deltaPitch = angles.pitch - prevPitchRef.current;
@@ -352,19 +381,16 @@ export const SandboxScreen: React.FC = () => {
       prevPitchRef.current = angles.pitch;
 
       const sway = handSwayRef.current;
-      sway.x += (-deltaYaw * 0.25 - sway.x) * (dt * 12);
-      sway.y += (-deltaPitch * 0.25 - sway.y) * (dt * 12);
-
-      handMesh.position.x = 0.32 + sway.x;
-      handMesh.position.y = -0.28 + sway.y;
+      sway.x += (-deltaYaw * 0.22 - sway.x) * (dt * 12);
+      sway.y += (-deltaPitch * 0.22 - sway.y) * (dt * 12);
 
       const move = moveVectorRef.current;
       const speed = isFlyingRef.current ? 9.0 : 4.6;
 
-      const targetRoll = -move.x * 0.04;
-      const targetPitch = move.z * 0.03;
-      rollLeanRef.current += (targetRoll - rollLeanRef.current) * (dt * 9);
-      pitchLeanRef.current += (targetPitch - pitchLeanRef.current) * (dt * 9);
+      const targetRoll = -move.x * 0.11;
+      const targetPitch = move.z * 0.07;
+      rollLeanRef.current += (targetRoll - rollLeanRef.current) * (dt * 8);
+      pitchLeanRef.current += (targetPitch - pitchLeanRef.current) * (dt * 8);
 
       const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), angles.yaw);
       const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), angles.yaw);
@@ -375,6 +401,11 @@ export const SandboxScreen: React.FC = () => {
 
       const pos = playerPosRef.current;
 
+      const dipOffset = (1 - equipP) * 0.35;
+      handRig.position.x = 0.42 + sway.x;
+      handRig.position.y = -0.28 + sway.y - dipOffset;
+      handRig.position.z = -0.36;
+
       if (moveDir.lengthSq() > 0.001) {
         moveDir.normalize();
         pos.x += moveDir.x * speed * dt;
@@ -383,8 +414,15 @@ export const SandboxScreen: React.FC = () => {
         walkCycle += dt * 10;
         leftLegPivot.rotation.x = Math.sin(walkCycle) * 0.65;
         rightLegPivot.rotation.x = -Math.sin(walkCycle) * 0.65;
-        leftArmPivot.rotation.x = -Math.sin(walkCycle) * 0.55;
-        rightArmPivot.rotation.x = Math.sin(walkCycle) * 0.55;
+
+        if (equipP < 0.2) {
+          leftArmPivot.rotation.x = -Math.sin(walkCycle) * 0.55;
+          rightArmPivot.rotation.x = Math.sin(walkCycle) * 0.55;
+          leftArmPivot.rotation.y = 0;
+          leftArmPivot.rotation.z = 0;
+          rightArmPivot.rotation.y = 0;
+          rightArmPivot.rotation.z = 0;
+        }
 
         const distMoved = Math.hypot(pos.x - lastChunkCheckX, pos.z - lastChunkCheckZ);
         if (distMoved >= chunkSize) {
@@ -395,8 +433,28 @@ export const SandboxScreen: React.FC = () => {
       } else {
         leftLegPivot.rotation.x *= 0.8;
         rightLegPivot.rotation.x *= 0.8;
-        leftArmPivot.rotation.x *= 0.8;
-        rightArmPivot.rotation.x *= 0.8;
+        if (equipP < 0.2) {
+          leftArmPivot.rotation.x *= 0.8;
+          rightArmPivot.rotation.x *= 0.8;
+        }
+      }
+
+      if (equipP >= 0.2) {
+        const holdRightX = -1.25;
+        const holdRightY = -0.22;
+        const holdRightZ = 0.05;
+
+        const holdLeftX = -1.4;
+        const holdLeftY = 0.52;
+        const holdLeftZ = -0.25;
+
+        rightArmPivot.rotation.x = THREE.MathUtils.lerp(rightArmPivot.rotation.x, holdRightX, equipP * 0.15);
+        rightArmPivot.rotation.y = THREE.MathUtils.lerp(rightArmPivot.rotation.y, holdRightY, equipP * 0.15);
+        rightArmPivot.rotation.z = THREE.MathUtils.lerp(rightArmPivot.rotation.z, holdRightZ, equipP * 0.15);
+
+        leftArmPivot.rotation.x = THREE.MathUtils.lerp(leftArmPivot.rotation.x, holdLeftX, equipP * 0.15);
+        leftArmPivot.rotation.y = THREE.MathUtils.lerp(leftArmPivot.rotation.y, holdLeftY, equipP * 0.15);
+        leftArmPivot.rotation.z = THREE.MathUtils.lerp(leftArmPivot.rotation.z, holdLeftZ, equipP * 0.15);
       }
 
       if (isFlyingRef.current) {
@@ -417,9 +475,9 @@ export const SandboxScreen: React.FC = () => {
       }
 
       playerBodyGroup.position.set(pos.x, pos.y, pos.z);
-      playerBodyGroup.rotation.y = angles.yaw - move.x * 0.1;
-      playerBodyGroup.rotation.z = rollLeanRef.current * 1.2;
-      playerBodyGroup.rotation.x = pitchLeanRef.current * 1.2;
+      playerBodyGroup.rotation.y = angles.yaw - move.x * 0.22;
+      playerBodyGroup.rotation.z = rollLeanRef.current * 1.4;
+      playerBodyGroup.rotation.x = pitchLeanRef.current * 1.3;
 
       if (currentMode === 0) {
         camera.position.set(pos.x, pos.y, pos.z);
@@ -430,7 +488,7 @@ export const SandboxScreen: React.FC = () => {
 
         headMesh.visible = false;
         rightArmPivot.visible = false;
-        handMesh.visible = true;
+        handRig.visible = true;
       } else if (currentMode === 1) {
         const dist = 3.6;
         const camX = pos.x + Math.sin(angles.yaw) * Math.cos(angles.pitch) * dist;
@@ -442,7 +500,7 @@ export const SandboxScreen: React.FC = () => {
 
         headMesh.visible = true;
         rightArmPivot.visible = true;
-        handMesh.visible = false;
+        handRig.visible = false;
       } else {
         const dist = 3.6;
         const camX = pos.x - Math.sin(angles.yaw) * Math.cos(angles.pitch) * dist;
@@ -454,7 +512,7 @@ export const SandboxScreen: React.FC = () => {
 
         headMesh.visible = true;
         rightArmPivot.visible = true;
-        handMesh.visible = false;
+        handRig.visible = false;
       }
 
       sunLight.position.set(pos.x + 30, 45, pos.z + 20);
@@ -666,6 +724,27 @@ export const SandboxScreen: React.FC = () => {
     textShadow: '0 1px 3px rgba(0, 0, 0, 0.35)',
   };
 
+  const crosshairContainerStyle: React.CSSProperties = {
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    pointerEvents: 'none',
+    zIndex: 40,
+    display: selectedSlot === 0 ? 'flex' : 'none',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '24px',
+    height: '24px',
+  };
+
+  const crosshairDotStyle: React.CSSProperties = {
+    width: '4px',
+    height: '4px',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    boxShadow: '0 0 2px rgba(0,0,0,0.8)',
+  };
+
   const getCameraModeLabel = (): string => {
     if (cameraMode === 0) return '1-Е ЛИЦО';
     if (cameraMode === 1) return '3-Е ЛИЦО';
@@ -683,6 +762,10 @@ export const SandboxScreen: React.FC = () => {
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
       />
+
+      <div style={crosshairContainerStyle}>
+        <div style={crosshairDotStyle} />
+      </div>
 
       <div style={topControlsStyle}>
         <div
@@ -745,7 +828,10 @@ export const SandboxScreen: React.FC = () => {
         )}
       </div>
 
-      <Hotbar />
+      <Hotbar
+        selectedSlot={selectedSlot}
+        onSelectSlot={(slot) => setSelectedSlot(slot)}
+      />
     </div>
   );
 };
