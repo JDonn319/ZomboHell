@@ -6,38 +6,49 @@ interface LoadingScreenProps {
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onLoaded }) => {
   const [progress, setProgress] = useState(0);
+  const [phraseIndex, setPhraseIndex] = useState(0);
 
-  const statusTexts = [
-    'ПОДКЛЮЧЕНИЕ СИСТЕМ НАВЕДЕНИЯ...',
-    'КАЛИБРОВКА ДАТЧИКОВ ОКРУЖЕНИЯ...',
-    'ЗАГРУЗКА БОЕВЫХ ПРОТОКОЛОВ...',
-    'СИНХРОНИЗАЦИЯ С СЕРВЕРОМ...',
-  ];
-
-  const currentStatusIndex = Math.min(
-    Math.floor((progress / 100) * statusTexts.length),
-    statusTexts.length - 1
-  );
+  const phrases = ['ам-ам-ам', 'ррр..РррРр!', 'ЭээЭ..ээ'];
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(onLoaded, 300);
-          return 100;
-        }
-        return prev + 1;
-      });
-    }, 30);
+    let current = 0;
+    let isCancelled = false;
 
-    return () => clearInterval(interval);
+    const step = () => {
+      if (isCancelled) return;
+
+      const increment = Math.random() * 6 + 2;
+      current = Math.min(current + increment, 100);
+      setProgress(Math.floor(current));
+
+      if (current < 35) {
+        setPhraseIndex(0);
+      } else if (current < 75) {
+        setPhraseIndex(1);
+      } else {
+        setPhraseIndex(2);
+      }
+
+      if (current >= 100) {
+        setTimeout(onLoaded, 400);
+      } else {
+        const delay = Math.random() * 120 + 80;
+        setTimeout(step, delay);
+      }
+    };
+
+    const initTimeout = setTimeout(step, 300);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(initTimeout);
+    };
   }, [onLoaded]);
 
   const containerStyle: React.CSSProperties = {
     position: 'fixed',
     inset: 0,
-    backgroundColor: '#000000',
+    backgroundColor: '#050704',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -47,12 +58,21 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onLoaded }) => {
 
   const logoWrapperStyle: React.CSSProperties = {
     position: 'relative',
-    width: 'min(360px, 50vw)',
-    height: 'min(180px, 25vw)',
+    width: 'min(380px, 46vw)',
+    height: 'min(170px, 24vw)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: '40px',
+    marginBottom: '46px',
+  };
+
+  const ambientGlowStyle: React.CSSProperties = {
+    position: 'absolute',
+    width: '120%',
+    height: '140%',
+    background: 'radial-gradient(circle, rgba(58, 97, 27, 0.45) 0%, rgba(58, 97, 27, 0) 70%)',
+    filter: 'blur(28px)',
+    pointerEvents: 'none',
   };
 
   const logoBackgroundStyle: React.CSSProperties = {
@@ -61,8 +81,8 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onLoaded }) => {
     width: '100%',
     height: '100%',
     objectFit: 'contain',
-    opacity: 0.15,
-    filter: 'grayscale(100%) brightness(50%)',
+    opacity: 0.18,
+    filter: 'grayscale(100%) brightness(35%)',
   };
 
   const logoFilledContainerStyle: React.CSSProperties = {
@@ -79,32 +99,21 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onLoaded }) => {
     left: 0,
     bottom: 0,
     width: '100%',
-    height: 'min(180px, 25vw)',
+    height: 'min(170px, 24vw)',
     objectFit: 'contain',
-    filter: 'drop-shadow(0 0 15px rgba(92, 148, 52, 0.7))',
-  };
-
-  const scanlineStyle: React.CSSProperties = {
-    position: 'absolute',
-    left: 0,
-    bottom: `${progress}%`,
-    width: '100%',
-    height: '2px',
-    backgroundColor: '#7cb342',
-    boxShadow: '0 0 12px 2px #7cb342',
-    display: progress > 0 && progress < 100 ? 'block' : 'none',
   };
 
   const statusTextStyle: React.CSSProperties = {
-    color: '#689f38',
-    fontSize: '18px',
-    letterSpacing: '0.25em',
-    marginBottom: '14px',
+    color: '#659c34',
+    fontSize: '15px',
+    fontWeight: 800,
+    letterSpacing: '0.22em',
+    marginBottom: '12px',
     textTransform: 'uppercase',
   };
 
   const progressBarTrackStyle: React.CSSProperties = {
-    width: 'min(500px, 60vw)',
+    width: 'min(480px, 58vw)',
     height: '3px',
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     position: 'relative',
@@ -113,21 +122,21 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onLoaded }) => {
   const progressBarFillStyle: React.CSSProperties = {
     height: '100%',
     width: `${progress}%`,
-    backgroundColor: '#689f38',
-    boxShadow: '0 0 8px #689f38',
+    backgroundColor: '#659c34',
+    boxShadow: '0 0 10px #659c34',
   };
 
   return (
     <div style={containerStyle}>
       <div style={logoWrapperStyle}>
-        <img src="/gamelogo.png" alt="Logo BG" style={logoBackgroundStyle} />
+        <div style={ambientGlowStyle} />
+        <img src="/gamelogo.png" alt="Logo Dim" style={logoBackgroundStyle} />
         <div style={logoFilledContainerStyle}>
           <img src="/gamelogo.png" alt="Logo Filled" style={logoFilledStyle} />
         </div>
-        <div style={scanlineStyle} />
       </div>
 
-      <div style={statusTextStyle}>{statusTexts[currentStatusIndex]}</div>
+      <div style={statusTextStyle}>{phrases[phraseIndex]}</div>
 
       <div style={progressBarTrackStyle}>
         <div style={progressBarFillStyle} />
