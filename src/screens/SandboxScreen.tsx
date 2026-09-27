@@ -5,6 +5,10 @@ import { Hotbar } from '../ui/Hotbar';
 export const SandboxScreen: React.FC = () => {
   const mountRef = useRef<HTMLDivElement | null>(null);
 
+  const [cameraMode, setCameraMode] = useState<0 | 1 | 2>(0);
+  const cameraModeRef = useRef<0 | 1 | 2>(0);
+  cameraModeRef.current = cameraMode;
+
   const [isFlying, setIsFlying] = useState<boolean>(false);
   const isFlyingRef = useRef<boolean>(false);
   isFlyingRef.current = isFlying;
@@ -103,65 +107,6 @@ export const SandboxScreen: React.FC = () => {
       return t;
     };
 
-    const createGloveTexture = (): THREE.CanvasTexture => {
-      const c = document.createElement('canvas');
-      c.width = 64;
-      c.height = 64;
-      const cx = c.getContext('2d')!;
-      cx.fillStyle = '#3a4e28';
-      cx.fillRect(0, 0, 64, 24);
-      cx.fillStyle = '#2c3d1e';
-      for (let i = 0; i < 64; i += 4) cx.fillRect(i, 0, 2, 24);
-      cx.fillStyle = '#222622';
-      cx.fillRect(0, 24, 64, 40);
-      cx.fillStyle = '#171a17';
-      cx.fillRect(0, 24, 64, 4);
-      cx.fillRect(0, 48, 64, 2);
-      cx.fillStyle = '#d69772';
-      cx.fillRect(44, 46, 16, 18);
-      cx.fillStyle = '#ba7b56';
-      cx.fillRect(44, 46, 16, 2);
-      cx.fillRect(44, 46, 2, 18);
-      const t = new THREE.CanvasTexture(c);
-      t.magFilter = THREE.NearestFilter;
-      t.minFilter = THREE.NearestFilter;
-      return t;
-    };
-
-    const createSkinTexture = (): THREE.CanvasTexture => {
-      const c = document.createElement('canvas');
-      c.width = 64;
-      c.height = 64;
-      const cx = c.getContext('2d')!;
-      cx.fillStyle = '#d69772';
-      cx.fillRect(0, 0, 64, 64);
-      cx.fillStyle = '#c78663';
-      for (let i = 0; i < 64; i += 8) {
-        for (let j = 0; j < 64; j += 8) {
-          if ((i + j) % 16 === 0) cx.fillRect(i, j, 4, 4);
-        }
-      }
-      const t = new THREE.CanvasTexture(c);
-      t.magFilter = THREE.NearestFilter;
-      t.minFilter = THREE.NearestFilter;
-      return t;
-    };
-
-    const createFabricTexture = (color1: string, color2: string): THREE.CanvasTexture => {
-      const c = document.createElement('canvas');
-      c.width = 64;
-      c.height = 64;
-      const cx = c.getContext('2d')!;
-      cx.fillStyle = color1;
-      cx.fillRect(0, 0, 64, 64);
-      cx.fillStyle = color2;
-      for (let i = 0; i < 64; i += 8) cx.fillRect(i, 0, 4, 64);
-      const t = new THREE.CanvasTexture(c);
-      t.magFilter = THREE.NearestFilter;
-      t.minFilter = THREE.NearestFilter;
-      return t;
-    };
-
     const blockMaterial = new THREE.MeshLambertMaterial({ map: createFloorTexture() });
     const blockGeometry = new THREE.BoxGeometry(1, 1, 1);
 
@@ -219,49 +164,183 @@ export const SandboxScreen: React.FC = () => {
 
     updateChunks(0, 0);
 
-    const gloveMaterial = new THREE.MeshLambertMaterial({ map: createGloveTexture() });
-    const skinMaterial = new THREE.MeshLambertMaterial({ map: createSkinTexture() });
-    const bodyMaterial = new THREE.MeshLambertMaterial({
-      map: createFabricTexture('#3a4e28', '#2d3d20'),
-    });
-    const pantsMaterial = new THREE.MeshLambertMaterial({
-      map: createFabricTexture('#27323a', '#1e262c'),
-    });
+    const createHeadTexture = (): THREE.CanvasTexture => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+      cx.fillStyle = '#e2b18f';
+      cx.fillRect(0, 0, 64, 64);
+      cx.fillStyle = '#342618';
+      cx.fillRect(0, 0, 64, 18);
+      cx.fillStyle = '#221910';
+      cx.fillRect(16, 26, 8, 8);
+      cx.fillRect(40, 26, 8, 8);
+      cx.fillStyle = '#ffffff';
+      cx.fillRect(20, 26, 4, 4);
+      cx.fillRect(44, 26, 4, 4);
+      cx.fillStyle = '#c79272';
+      cx.fillRect(26, 42, 12, 4);
+      const t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    };
+
+    const createUpperBodyTexture = (): THREE.CanvasTexture => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+      cx.fillStyle = '#3f572a';
+      cx.fillRect(0, 0, 64, 64);
+      cx.fillStyle = '#2c3d1d';
+      cx.fillRect(0, 0, 64, 8);
+      cx.fillRect(28, 8, 8, 56);
+      cx.fillStyle = '#1c2612';
+      cx.fillRect(8, 24, 14, 16);
+      cx.fillRect(42, 24, 14, 16);
+      const t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    };
+
+    const createLowerBodyTexture = (): THREE.CanvasTexture => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+      cx.fillStyle = '#222722';
+      cx.fillRect(0, 0, 64, 24);
+      cx.fillStyle = '#c28b28';
+      cx.fillRect(26, 6, 12, 12);
+      cx.fillStyle = '#28333b';
+      cx.fillRect(0, 24, 64, 40);
+      const t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    };
+
+    const createArmTexture = (): THREE.CanvasTexture => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+      cx.fillStyle = '#3f572a';
+      cx.fillRect(0, 0, 64, 28);
+      cx.fillStyle = '#2c3d1d';
+      cx.fillRect(0, 24, 64, 4);
+      cx.fillStyle = '#1f2220';
+      cx.fillRect(0, 28, 64, 28);
+      cx.fillStyle = '#e2b18f';
+      cx.fillRect(0, 56, 64, 8);
+      const t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    };
+
+    const createLegTexture = (): THREE.CanvasTexture => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+      cx.fillStyle = '#28333b';
+      cx.fillRect(0, 0, 64, 48);
+      cx.fillStyle = '#182025';
+      cx.fillRect(0, 20, 64, 6);
+      cx.fillStyle = '#151616';
+      cx.fillRect(0, 48, 64, 16);
+      const t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    };
+
+    const headMat = new THREE.MeshLambertMaterial({ map: createHeadTexture() });
+    const upperBodyMat = new THREE.MeshLambertMaterial({ map: createUpperBodyTexture() });
+    const lowerBodyMat = new THREE.MeshLambertMaterial({ map: createLowerBodyTexture() });
+    const armMat = new THREE.MeshLambertMaterial({ map: createArmTexture() });
+    const legMat = new THREE.MeshLambertMaterial({ map: createLegTexture() });
 
     const playerBodyGroup = new THREE.Group();
 
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.72, 0.28), bodyMaterial);
-    torso.position.y = -0.56;
-    torso.castShadow = true;
-    playerBodyGroup.add(torso);
+    const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.36, 0.36), headMat);
+    headMesh.position.set(0, 0.08, 0.12);
+    headMesh.castShadow = true;
+    playerBodyGroup.add(headMesh);
 
-    const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), bodyMaterial);
-    leftArm.position.set(-0.36, -0.56, 0);
-    leftArm.castShadow = true;
-    playerBodyGroup.add(leftArm);
+    const torsoUpper = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.44, 0.24), upperBodyMat);
+    torsoUpper.position.set(0, -0.34, 0.12);
+    torsoUpper.castShadow = true;
+    playerBodyGroup.add(torsoUpper);
 
-    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.75, 0.24), pantsMaterial);
-    leftLeg.position.set(-0.13, -1.25, 0);
+    const torsoLower = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.28, 0.22), lowerBodyMat);
+    torsoLower.position.set(0, -0.66, 0.12);
+    torsoLower.castShadow = true;
+    playerBodyGroup.add(torsoLower);
+
+    const bodyLeftArm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.62, 0.16), armMat);
+    bodyLeftArm.position.set(-0.31, -0.42, 0.12);
+    bodyLeftArm.castShadow = true;
+    playerBodyGroup.add(bodyLeftArm);
+
+    const bodyRightArm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.62, 0.16), armMat);
+    bodyRightArm.position.set(0.31, -0.42, 0.12);
+    bodyRightArm.castShadow = true;
+    playerBodyGroup.add(bodyRightArm);
+
+    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.74, 0.18), legMat);
+    leftLeg.position.set(-0.11, -1.18, 0.12);
     leftLeg.castShadow = true;
     playerBodyGroup.add(leftLeg);
 
-    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.75, 0.24), pantsMaterial);
-    rightLeg.position.set(0.13, -1.25, 0);
+    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.74, 0.18), legMat);
+    rightLeg.position.set(0.11, -1.18, 0.12);
     rightLeg.castShadow = true;
     playerBodyGroup.add(rightLeg);
 
     scene.add(playerBodyGroup);
 
+    const createFpsGloveTexture = (): THREE.CanvasTexture => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+      cx.fillStyle = '#3f572a';
+      cx.fillRect(0, 0, 64, 20);
+      cx.fillStyle = '#2c3d1d';
+      cx.fillRect(0, 18, 64, 4);
+      cx.fillStyle = '#1c1f1c';
+      cx.fillRect(0, 22, 64, 42);
+      cx.fillStyle = '#2c302c';
+      cx.fillRect(16, 26, 32, 14);
+      cx.fillStyle = '#e2b18f';
+      cx.fillRect(40, 48, 18, 16);
+      cx.fillStyle = '#c79272';
+      cx.fillRect(40, 48, 18, 2);
+      const t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    };
+
+    const fpsGloveMat = new THREE.MeshLambertMaterial({ map: createFpsGloveTexture() });
+
     const handRig = new THREE.Group();
-    const armMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.2), gloveMaterial);
+    const armMesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.58, 0.16), fpsGloveMat);
+    armMesh.position.set(0, 0, 0);
     handRig.add(armMesh);
 
-    const thumbMesh = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.08), skinMaterial);
-    thumbMesh.position.set(-0.11, 0.12, 0.05);
-    thumbMesh.rotation.z = 0.25;
+    const thumbMesh = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.08), headMat);
+    thumbMesh.position.set(-0.09, 0.14, 0.04);
+    thumbMesh.rotation.z = 0.2;
     handRig.add(thumbMesh);
 
-    handRig.position.set(0.38, -0.36, -0.5);
+    handRig.position.set(0.34, -0.32, -0.45);
+    handRig.rotation.set(0.05, -0.05, 0);
     camera.add(handRig);
     scene.add(camera);
 
@@ -269,6 +348,7 @@ export const SandboxScreen: React.FC = () => {
     let lastTime = performance.now();
     let lastChunkCheckX = 0;
     let lastChunkCheckZ = 0;
+    let walkCycle = 0;
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
@@ -278,9 +358,7 @@ export const SandboxScreen: React.FC = () => {
       lastTime = currentTime;
 
       const angles = cameraAnglesRef.current;
-      camera.rotation.order = 'YXZ';
-      camera.rotation.y = angles.yaw;
-      camera.rotation.x = angles.pitch;
+      const currentMode = cameraModeRef.current;
 
       const deltaYaw = angles.yaw - prevYawRef.current;
       const deltaPitch = angles.pitch - prevPitchRef.current;
@@ -288,11 +366,11 @@ export const SandboxScreen: React.FC = () => {
       prevPitchRef.current = angles.pitch;
 
       const sway = handSwayRef.current;
-      sway.x += (-deltaYaw * 0.3 - sway.x) * (dt * 12);
-      sway.y += (-deltaPitch * 0.3 - sway.y) * (dt * 12);
+      sway.x += (-deltaYaw * 0.25 - sway.x) * (dt * 12);
+      sway.y += (-deltaPitch * 0.25 - sway.y) * (dt * 12);
 
-      handRig.position.x = 0.38 + sway.x;
-      handRig.position.y = -0.36 + sway.y;
+      handRig.position.x = 0.34 + sway.x;
+      handRig.position.y = -0.32 + sway.y;
 
       const move = moveVectorRef.current;
       const speed = isFlyingRef.current ? 9.0 : 4.6;
@@ -311,12 +389,23 @@ export const SandboxScreen: React.FC = () => {
         pos.x += moveDir.x * speed * dt;
         pos.z += moveDir.z * speed * dt;
 
+        walkCycle += dt * 10;
+        leftLeg.rotation.x = Math.sin(walkCycle) * 0.6;
+        rightLeg.rotation.x = -Math.sin(walkCycle) * 0.6;
+        bodyLeftArm.rotation.x = -Math.sin(walkCycle) * 0.5;
+        bodyRightArm.rotation.x = Math.sin(walkCycle) * 0.5;
+
         const distMoved = Math.hypot(pos.x - lastChunkCheckX, pos.z - lastChunkCheckZ);
         if (distMoved >= chunkSize) {
           lastChunkCheckX = pos.x;
           lastChunkCheckZ = pos.z;
           updateChunks(pos.x, pos.z);
         }
+      } else {
+        leftLeg.rotation.x *= 0.8;
+        rightLeg.rotation.x *= 0.8;
+        bodyLeftArm.rotation.x *= 0.8;
+        bodyRightArm.rotation.x *= 0.8;
       }
 
       if (isFlyingRef.current) {
@@ -336,9 +425,43 @@ export const SandboxScreen: React.FC = () => {
         }
       }
 
-      camera.position.set(pos.x, pos.y, pos.z);
       playerBodyGroup.position.set(pos.x, pos.y, pos.z);
       playerBodyGroup.rotation.y = angles.yaw;
+
+      if (currentMode === 0) {
+        camera.position.set(pos.x, pos.y, pos.z);
+        camera.rotation.order = 'YXZ';
+        camera.rotation.y = angles.yaw;
+        camera.rotation.x = angles.pitch;
+
+        headMesh.visible = false;
+        bodyRightArm.visible = false;
+        handRig.visible = true;
+      } else if (currentMode === 1) {
+        const dist = 3.6;
+        const camX = pos.x + Math.sin(angles.yaw) * Math.cos(angles.pitch) * dist;
+        const camY = pos.y + Math.sin(-angles.pitch) * dist + 0.5;
+        const camZ = pos.z + Math.cos(angles.yaw) * Math.cos(angles.pitch) * dist;
+
+        camera.position.set(camX, camY, camZ);
+        camera.lookAt(pos.x, pos.y - 0.2, pos.z);
+
+        headMesh.visible = true;
+        bodyRightArm.visible = true;
+        handRig.visible = false;
+      } else {
+        const dist = 3.6;
+        const camX = pos.x - Math.sin(angles.yaw) * Math.cos(angles.pitch) * dist;
+        const camY = pos.y - Math.sin(-angles.pitch) * dist + 0.5;
+        const camZ = pos.z - Math.cos(angles.yaw) * Math.cos(angles.pitch) * dist;
+
+        camera.position.set(camX, camY, camZ);
+        camera.lookAt(pos.x, pos.y - 0.2, pos.z);
+
+        headMesh.visible = true;
+        bodyRightArm.visible = true;
+        handRig.visible = false;
+      }
 
       sunLight.position.set(pos.x + 30, 45, pos.z + 20);
       sunLight.target.position.set(pos.x, 0, pos.z);
@@ -453,11 +576,42 @@ export const SandboxScreen: React.FC = () => {
     }
   };
 
+  const cycleCameraMode = (e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    setCameraMode((prev) => ((prev + 1) % 3) as 0 | 1 | 2);
+  };
+
   const overlayTouchStyle: React.CSSProperties = {
     position: 'fixed',
     inset: 0,
     zIndex: 10,
     touchAction: 'none',
+  };
+
+  const topControlsStyle: React.CSSProperties = {
+    position: 'fixed',
+    top: '18px',
+    right: '24px',
+    zIndex: 50,
+    display: 'flex',
+    gap: '10px',
+  };
+
+  const topViewButtonStyle: React.CSSProperties = {
+    height: '36px',
+    padding: '0 12px',
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    backdropFilter: 'blur(4px)',
+    border: '2px solid rgba(255, 255, 255, 0.85)',
+    color: '#ffffff',
+    fontSize: '14px',
+    fontWeight: 900,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    userSelect: 'none',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
   };
 
   const joystickBaseStyle: React.CSSProperties = {
@@ -518,6 +672,12 @@ export const SandboxScreen: React.FC = () => {
     textShadow: '0 1px 3px rgba(0, 0, 0, 0.35)',
   };
 
+  const getCameraModeLabel = (): string => {
+    if (cameraMode === 0) return '1-Е ЛИЦО';
+    if (cameraMode === 1) return '3-Е ЛИЦО';
+    return '2-Е ЛИЦО';
+  };
+
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: '#b8dcfa', overflow: 'hidden' }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
@@ -529,6 +689,16 @@ export const SandboxScreen: React.FC = () => {
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
       />
+
+      <div style={topControlsStyle}>
+        <div
+          style={topViewButtonStyle}
+          onTouchStart={cycleCameraMode}
+          onClick={cycleCameraMode}
+        >
+          {getCameraModeLabel()}
+        </div>
+      </div>
 
       <div style={joystickBaseStyle}>
         <div style={joystickKnobStyle} />
