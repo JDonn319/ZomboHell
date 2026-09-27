@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-export const Hotbar: React.FC = () => {
-  const [selectedSlot, setSelectedSlot] = useState(0);
+interface HotbarProps {
+  selectedSlot: number;
+  onSelectSlot: (slot: number) => void;
+}
 
+export const Hotbar: React.FC<HotbarProps> = ({ selectedSlot, onSelectSlot }) => {
   const containerStyle: React.CSSProperties = {
     position: 'fixed',
     bottom: '14px',
@@ -27,8 +30,20 @@ export const Hotbar: React.FC = () => {
       justifyContent: 'center',
       cursor: 'pointer',
       boxSizing: 'border-box',
+      position: 'relative',
     };
   };
+
+  const renderGunIcon = () => (
+    <svg width="28" height="28" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="6" width="9" height="4" fill="#e0e6ed" />
+      <rect x="5" y="7" width="3" height="2" fill="#69f0ae" />
+      <rect x="3" y="10" width="3" height="3" fill="#263238" />
+      <rect x="11" y="5" width="3" height="1" fill="#78909c" />
+      <rect x="11" y="10" width="3" height="1" fill="#78909c" />
+      <rect x="10" y="7" width="2" height="2" fill="#37474f" />
+    </svg>
+  );
 
   return (
     <div style={containerStyle}>
@@ -38,10 +53,12 @@ export const Hotbar: React.FC = () => {
           style={slotStyle(index)}
           onTouchStart={(e) => {
             e.stopPropagation();
-            setSelectedSlot(index);
+            onSelectSlot(index);
           }}
-          onClick={() => setSelectedSlot(index)}
-        />
+          onClick={() => onSelectSlot(index)}
+        >
+          {index === 0 && renderGunIcon()}
+        </div>
       ))}
     </div>
   );
