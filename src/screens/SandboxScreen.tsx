@@ -12,6 +12,7 @@ export const SandboxScreen: React.FC = () => {
   const verticalVelocityRef = useRef(0);
   const isGroundedRef = useRef(true);
 
+  const playerPosRef = useRef({ x: 0, y: 2.0, z: 0 });
   const moveVectorRef = useRef({ x: 0, z: 0, y: 0 });
   const cameraAnglesRef = useRef({ yaw: 0, pitch: 0 });
 
@@ -35,7 +36,7 @@ export const SandboxScreen: React.FC = () => {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#b8dcfa');
-    scene.fog = new THREE.Fog('#b8dcfa', 24, 65);
+    scene.fog = new THREE.Fog('#b8dcfa', 24, 56);
 
     const camera = new THREE.PerspectiveCamera(
       75,
@@ -43,7 +44,6 @@ export const SandboxScreen: React.FC = () => {
       0.1,
       100
     );
-    camera.position.set(0, 2.0, 0);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: false,
@@ -55,102 +55,246 @@ export const SandboxScreen: React.FC = () => {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    const hemiLight = new THREE.HemisphereLight('#ffffff', '#b0c4de', 0.65);
+    const hemiLight = new THREE.HemisphereLight('#ffffff', '#a8c2d8', 0.65);
     scene.add(hemiLight);
 
     const sunLight = new THREE.DirectionalLight('#fffaf0', 1.35);
-    sunLight.position.set(25, 45, 20);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 1024;
     sunLight.shadow.mapSize.height = 1024;
     sunLight.shadow.camera.near = 1;
-    sunLight.shadow.camera.far = 90;
-    sunLight.shadow.camera.left = -30;
-    sunLight.shadow.camera.right = 30;
-    sunLight.shadow.camera.top = 30;
-    sunLight.shadow.camera.bottom = -30;
+    sunLight.shadow.camera.far = 100;
+    sunLight.shadow.camera.left = -35;
+    sunLight.shadow.camera.right = 35;
+    sunLight.shadow.camera.top = 35;
+    sunLight.shadow.camera.bottom = -35;
     sunLight.shadow.bias = -0.0005;
     scene.add(sunLight);
+    scene.add(sunLight.target);
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 64;
-    canvas.height = 64;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#f5f7fa';
-    ctx.fillRect(0, 0, 64, 64);
+    const createFloorCanvas = () => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
 
-    ctx.fillStyle = '#a8b2bc';
-    ctx.fillRect(0, 0, 64, 2);
-    ctx.fillRect(0, 62, 64, 2);
-    ctx.fillRect(0, 0, 2, 64);
-    ctx.fillRect(62, 0, 2, 64);
+      cx.fillStyle = '#f4f6f8';
+      cx.fillRect(0, 0, 64, 64);
 
-    for (let i = 2; i < 62; i += 8) {
-      for (let j = 2; j < 62; j += 8) {
-        if ((i + j) % 16 === 0) {
-          ctx.fillStyle = '#e8ecf2';
-          ctx.fillRect(i, j, 8, 8);
+      cx.fillStyle = '#8f9ba6';
+      cx.fillRect(0, 0, 64, 2);
+      cx.fillRect(0, 62, 64, 2);
+      cx.fillRect(0, 0, 2, 64);
+      cx.fillRect(62, 0, 2, 64);
+
+      cx.fillStyle = '#b4bec8';
+      cx.fillRect(2, 2, 60, 1);
+      cx.fillRect(2, 2, 1, 60);
+
+      cx.fillStyle = '#dce2e8';
+      for (let x = 4; x < 60; x += 4) {
+        for (let y = 4; y < 60; y += 4) {
+          if ((x * 7 + y * 13) % 5 === 0) {
+            cx.fillRect(x, y, 2, 2);
+          }
         }
       }
-    }
 
-    const blockTexture = new THREE.CanvasTexture(canvas);
-    blockTexture.magFilter = THREE.NearestFilter;
-    blockTexture.minFilter = THREE.NearestFilter;
+      for (let i = 8; i < 64; i += 8) {
+        cx.fillStyle = 'rgba(143, 155, 166, 0.35)';
+        cx.fillRect(i, 2, 1, 60);
+        cx.fillRect(2, i, 60, 1);
+      }
 
-    const blockMaterial = new THREE.MeshLambertMaterial({ map: blockTexture });
+      return c;
+    };
+
+    const floorTexture = new THREE.CanvasTexture(createFloorCanvas());
+    floorTexture.magFilter = THREE.NearestFilter;
+    floorTexture.minFilter = THREE.NearestFilter;
+
+    const blockMaterial = new THREE.MeshLambertMaterial({ map: floorTexture });
     const blockGeometry = new THREE.BoxGeometry(1, 1, 1);
 
     const chunkSize = 8;
     const chunkRadius = 4;
-    const sideCount = (chunkRadius * 2 + 1) * chunkSize;
-    const totalBlocks = sideCount * sideCount;
+    const activeChunks = new Map<string, THREE.InstancedMesh>();
+    const chunkDummy = new THREE.Object3D();
 
-    const instancedFloor = new THREE.InstancedMesh(blockGeometry, blockMaterial, totalBlocks);
-    instancedFloor.receiveShadow = true;
+    const spawnChunk = (chunkX: number, chunkZ: number) => {
+      const chunkKey = `${chunkX},${chunkZ}`;
+      if (activeChunks.has(chunkKey)) return;
 
-    const dummy = new THREE.Object3D();
-    let idx = 0;
-    const halfSide = Math.floor(sideCount / 2);
-    for (let x = -halfSide; x < halfSide; x++) {
-      for (let z = -halfSide; z < halfSide; z++) {
-        dummy.position.set(x, 0, z);
-        dummy.updateMatrix();
-        instancedFloor.setMatrixAt(idx++, dummy.matrix);
+      const mesh = new THREE.InstancedMesh(blockGeometry, blockMaterial, chunkSize * chunkSize);
+      mesh.receiveShadow = true;
+
+      let idx = 0;
+      const startX = chunkX * chunkSize;
+      const startZ = chunkZ * chunkSize;
+
+      for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+          chunkDummy.position.set(startX + x, 0, startZ + z);
+          chunkDummy.updateMatrix();
+          mesh.setMatrixAt(idx++, chunkDummy.matrix);
+        }
       }
-    }
-    instancedFloor.instanceMatrix.needsUpdate = true;
-    scene.add(instancedFloor);
 
-    const handCanvas = document.createElement('canvas');
-    handCanvas.width = 16;
-    handCanvas.height = 16;
-    const hCtx = handCanvas.getContext('2d')!;
+      mesh.instanceMatrix.needsUpdate = true;
+      scene.add(mesh);
+      activeChunks.set(chunkKey, mesh);
+    };
 
-    hCtx.fillStyle = '#3a506b';
-    hCtx.fillRect(0, 0, 16, 6);
+    const updateChunks = (centerX: number, centerZ: number) => {
+      const currentChunkX = Math.floor(centerX / chunkSize);
+      const currentChunkZ = Math.floor(centerZ / chunkSize);
 
-    hCtx.fillStyle = '#e5a882';
-    hCtx.fillRect(0, 6, 16, 10);
-    hCtx.fillStyle = '#d4946f';
-    hCtx.fillRect(0, 12, 16, 4);
+      const requiredKeys = new Set<string>();
 
-    const handTexture = new THREE.CanvasTexture(handCanvas);
-    handTexture.magFilter = THREE.NearestFilter;
-    handTexture.minFilter = THREE.NearestFilter;
+      for (let dx = -chunkRadius; dx <= chunkRadius; dx++) {
+        for (let dz = -chunkRadius; dz <= chunkRadius; dz++) {
+          const cx = currentChunkX + dx;
+          const cz = currentChunkZ + dz;
+          const key = `${cx},${cz}`;
+          requiredKeys.add(key);
+          spawnChunk(cx, cz);
+        }
+      }
 
-    const handGeo = new THREE.BoxGeometry(0.2, 0.55, 0.2);
-    const handMat = new THREE.MeshLambertMaterial({ map: handTexture });
-    const handMesh = new THREE.Mesh(handGeo, handMat);
+      activeChunks.forEach((mesh, key) => {
+        if (!requiredKeys.has(key)) {
+          scene.remove(mesh);
+          mesh.dispose();
+          activeChunks.delete(key);
+        }
+      });
+    };
 
-    handMesh.position.set(0.36, -0.34, -0.52);
-    handMesh.rotation.set(-0.35, -0.15, 0.12);
-    camera.add(handMesh);
+    updateChunks(0, 0);
+
+    const createGloveTexture = () => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+
+      cx.fillStyle = '#3a4e28';
+      cx.fillRect(0, 0, 64, 24);
+      cx.fillStyle = '#2c3d1e';
+      for (let i = 0; i < 64; i += 4) {
+        cx.fillRect(i, 0, 2, 24);
+      }
+
+      cx.fillStyle = '#222622';
+      cx.fillRect(0, 24, 64, 40);
+
+      cx.fillStyle = '#171a17';
+      cx.fillRect(0, 24, 64, 4);
+      cx.fillRect(0, 48, 64, 2);
+
+      cx.fillStyle = '#d69772';
+      cx.fillRect(44, 46, 16, 18);
+      cx.fillStyle = '#ba7b56';
+      cx.fillRect(44, 46, 16, 2);
+      cx.fillRect(44, 46, 2, 18);
+
+      return c;
+    };
+
+    const gloveTexture = new THREE.CanvasTexture(createGloveTexture());
+    gloveTexture.magFilter = THREE.NearestFilter;
+    gloveTexture.minFilter = THREE.NearestFilter;
+    const gloveMaterial = new THREE.MeshLambertMaterial({ map: gloveTexture });
+
+    const createSkinTexture = () => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+      cx.fillStyle = '#d69772';
+      cx.fillRect(0, 0, 64, 64);
+      cx.fillStyle = '#c78663';
+      for (let i = 0; i < 64; i += 8) {
+        for (let j = 0; j < 64; j += 8) {
+          if ((i + j) % 16 === 0) cx.fillRect(i, j, 4, 4);
+        }
+      }
+      return c;
+    };
+
+    const skinTexture = new THREE.CanvasTexture(createSkinTexture());
+    skinTexture.magFilter = THREE.NearestFilter;
+    skinTexture.minFilter = THREE.NearestFilter;
+    const skinMaterial = new THREE.MeshLambertMaterial({ map: skinTexture });
+
+    const createFabricTexture = (color1: string, color2: string) => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+      cx.fillStyle = color1;
+      cx.fillRect(0, 0, 64, 64);
+      cx.fillStyle = color2;
+      for (let i = 0; i < 64; i += 8) {
+        cx.fillRect(i, 0, 4, 64);
+      }
+      return c;
+    };
+
+    const bodyTexture = new THREE.CanvasTexture(createFabricTexture('#3a4e28', '#2d3d20'));
+    bodyTexture.magFilter = THREE.NearestFilter;
+    bodyTexture.minFilter = THREE.NearestFilter;
+    const bodyMaterial = new THREE.MeshLambertMaterial({ map: bodyTexture });
+
+    const pantsTexture = new THREE.CanvasTexture(createFabricTexture('#27323a', '#1e262c'));
+    pantsTexture.magFilter = THREE.NearestFilter;
+    pantsTexture.minFilter = THREE.NearestFilter;
+    const pantsMaterial = new THREE.MeshLambertMaterial({ map: pantsTexture });
+
+    const playerBodyGroup = new THREE.Group();
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.72, 0.28), bodyMaterial);
+    torso.position.y = -0.56;
+    torso.castShadow = true;
+    playerBodyGroup.add(torso);
+
+    const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), bodyMaterial);
+    leftArm.position.set(-0.36, -0.56, 0);
+    leftArm.castShadow = true;
+    playerBodyGroup.add(leftArm);
+
+    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.75, 0.24), pantsMaterial);
+    leftLeg.position.set(-0.13, -1.25, 0);
+    leftLeg.castShadow = true;
+    playerBodyGroup.add(leftLeg);
+
+    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.75, 0.24), pantsMaterial);
+    rightLeg.position.set(0.13, -1.25, 0);
+    rightLeg.castShadow = true;
+    playerBodyGroup.add(rightLeg);
+
+    scene.add(playerBodyGroup);
+
+    const handRig = new THREE.Group();
+
+    const armMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.2), gloveMaterial);
+    armMesh.position.set(0, 0, 0);
+    handRig.add(armMesh);
+
+    const thumbMesh = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.08), skinMaterial);
+    thumbMesh.position.set(-0.11, 0.12, 0.05);
+    thumbMesh.rotation.z = 0.25;
+    handRig.add(thumbMesh);
+
+    handRig.position.set(0.38, -0.36, -0.5);
+    handRig.rotation.set(0, 0, 0);
+    camera.add(handRig);
     scene.add(camera);
 
     let animationFrameId: number;
     let lastTime = performance.now();
-    let walkCycle = 0;
+    let lastChunkCheckX = 0;
+    let lastChunkCheckZ = 0;
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
@@ -170,8 +314,12 @@ export const SandboxScreen: React.FC = () => {
       prevPitchRef.current = angles.pitch;
 
       const sway = handSwayRef.current;
-      sway.x += (-deltaYaw * 0.35 - sway.x) * (dt * 12);
-      sway.y += (-deltaPitch * 0.35 - sway.y) * (dt * 12);
+      sway.x += (-deltaYaw * 0.3 - sway.x) * (dt * 12);
+      sway.y += (-deltaPitch * 0.3 - sway.y) * (dt * 12);
+
+      handRig.position.x = 0.38 + sway.x;
+      handRig.position.y = -0.36 + sway.y;
+      handRig.position.z = -0.5;
 
       const move = moveVectorRef.current;
       const speed = isFlyingRef.current ? 9.0 : 4.6;
@@ -183,40 +331,45 @@ export const SandboxScreen: React.FC = () => {
         .addScaledVector(forward, -move.z)
         .addScaledVector(right, move.x);
 
-      let bobX = 0;
-      let bobY = 0;
+      const pos = playerPosRef.current;
 
       if (moveDir.lengthSq() > 0.001) {
         moveDir.normalize();
-        camera.position.addScaledVector(moveDir, speed * dt);
+        pos.x += moveDir.x * speed * dt;
+        pos.z += moveDir.z * speed * dt;
 
-        walkCycle += dt * 8.5;
-        bobY = Math.sin(walkCycle) * 0.015;
-        bobX = Math.cos(walkCycle * 0.5) * 0.01;
+        const distMoved = Math.hypot(pos.x - lastChunkCheckX, pos.z - lastChunkCheckZ);
+        if (distMoved >= chunkSize) {
+          lastChunkCheckX = pos.x;
+          lastChunkCheckZ = pos.z;
+          updateChunks(pos.x, pos.z);
+        }
       }
 
-      handMesh.position.x = 0.36 + sway.x + bobX;
-      handMesh.position.y = -0.34 + sway.y + bobY;
-      handMesh.position.z = -0.52;
-
       if (isFlyingRef.current) {
-        camera.position.y += move.y * speed * dt;
+        pos.y += move.y * speed * dt;
         verticalVelocityRef.current = 0;
-        if (camera.position.y < 2.0) {
-          camera.position.y = 2.0;
-        }
+        if (pos.y < 2.0) pos.y = 2.0;
       } else {
         verticalVelocityRef.current -= 22.0 * dt;
-        camera.position.y += verticalVelocityRef.current * dt;
+        pos.y += verticalVelocityRef.current * dt;
 
-        if (camera.position.y <= 2.0) {
-          camera.position.y = 2.0;
+        if (pos.y <= 2.0) {
+          pos.y = 2.0;
           verticalVelocityRef.current = 0;
           isGroundedRef.current = true;
         } else {
           isGroundedRef.current = false;
         }
       }
+
+      camera.position.set(pos.x, pos.y, pos.z);
+      playerBodyGroup.position.set(pos.x, pos.y, pos.z);
+      playerBodyGroup.rotation.y = angles.yaw;
+
+      sunLight.position.set(pos.x + 30, 45, pos.z + 20);
+      sunLight.target.position.set(pos.x, 0, pos.z);
+      sunLight.target.updateMatrixWorld();
 
       renderer.render(scene, camera);
     };
@@ -235,6 +388,8 @@ export const SandboxScreen: React.FC = () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
+      activeChunks.forEach((mesh) => mesh.dispose());
+      activeChunks.clear();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
@@ -434,34 +589,3 @@ export const SandboxScreen: React.FC = () => {
               }}
             >
               ▼
-            </div>
-            <div
-              style={{
-                ...roundActionButtonStyle,
-                fontSize: '11px',
-                height: '36px',
-                borderRadius: '18px',
-              }}
-              onTouchStart={(e) => {
-                e.stopPropagation();
-                setIsFlying(false);
-                moveVectorRef.current.y = 0;
-              }}
-            >
-              СТОП
-            </div>
-          </>
-        ) : (
-          <div
-            style={roundActionButtonStyle}
-            onTouchStart={triggerJumpOrToggleFlight}
-          >
-            ▲
-          </div>
-        )}
-      </div>
-
-      <Hotbar />
-    </div>
-  );
-};
