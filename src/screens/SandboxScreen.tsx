@@ -1,32 +1,33 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Hotbar } from '../ui/Hotbar';
-import { TouchControls } from '../ui/TouchControls';
-import {
-  createFloorTexture,
-  createGloveTexture,
-  createSkinTexture,
-  createFabricTexture,
-} from '../game/textures';
 
 export const SandboxScreen: React.FC = () => {
   const mountRef = useRef<HTMLDivElement | null>(null);
 
-  const [isFlying, setIsFlying] = useState(false);
-  const isFlyingRef = useRef(false);
+  const [isFlying, setIsFlying] = useState<boolean>(false);
+  const isFlyingRef = useRef<boolean>(false);
   isFlyingRef.current = isFlying;
 
-  const verticalVelocityRef = useRef(0);
-  const isGroundedRef = useRef(true);
+  const verticalVelocityRef = useRef<number>(0);
+  const isGroundedRef = useRef<boolean>(true);
 
-  const playerPosRef = useRef({ x: 0, y: 2.0, z: 0 });
-  const moveVectorRef = useRef({ x: 0, z: 0, y: 0 });
-  const cameraAnglesRef = useRef({ yaw: 0, pitch: 0 });
+  const playerPosRef = useRef<{ x: number; y: number; z: number }>({ x: 0, y: 2.0, z: 0 });
+  const moveVectorRef = useRef<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 0 });
+  const cameraAnglesRef = useRef<{ yaw: number; pitch: number }>({ yaw: 0, pitch: 0 });
 
-  const prevYawRef = useRef(0);
-  const prevPitchRef = useRef(0);
-  const handSwayRef = useRef({ x: 0, y: 0 });
-  const lastJumpTapRef = useRef(0);
+  const prevYawRef = useRef<number>(0);
+  const prevPitchRef = useRef<number>(0);
+  const handSwayRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const lastJumpTapRef = useRef<number>(0);
+
+  const joystickTouchIdRef = useRef<number | null>(null);
+  const joystickStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [joystickThumb, setJoystickThumb] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isJoystickActive, setIsJoystickActive] = useState<boolean>(false);
+
+  const lookTouchIdRef = useRef<number | null>(null);
+  const lookLastPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   useEffect(() => {
     const container = mountRef.current;
@@ -69,6 +70,97 @@ export const SandboxScreen: React.FC = () => {
     sunLight.shadow.bias = -0.0005;
     scene.add(sunLight);
     scene.add(sunLight.target);
+
+    const createFloorTexture = (): THREE.CanvasTexture => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+      cx.fillStyle = '#f4f6f8';
+      cx.fillRect(0, 0, 64, 64);
+      cx.fillStyle = '#8f9ba6';
+      cx.fillRect(0, 0, 64, 2);
+      cx.fillRect(0, 62, 64, 2);
+      cx.fillRect(0, 0, 2, 64);
+      cx.fillRect(62, 0, 2, 64);
+      cx.fillStyle = '#b4bec8';
+      cx.fillRect(2, 2, 60, 1);
+      cx.fillRect(2, 2, 1, 60);
+      cx.fillStyle = '#dce2e8';
+      for (let x = 4; x < 60; x += 4) {
+        for (let y = 4; y < 60; y += 4) {
+          if ((x * 7 + y * 13) % 5 === 0) cx.fillRect(x, y, 2, 2);
+        }
+      }
+      for (let i = 8; i < 64; i += 8) {
+        cx.fillStyle = 'rgba(143, 155, 166, 0.35)';
+        cx.fillRect(i, 2, 1, 60);
+        cx.fillRect(2, i, 60, 1);
+      }
+      const t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    };
+
+    const createGloveTexture = (): THREE.CanvasTexture => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+      cx.fillStyle = '#3a4e28';
+      cx.fillRect(0, 0, 64, 24);
+      cx.fillStyle = '#2c3d1e';
+      for (let i = 0; i < 64; i += 4) cx.fillRect(i, 0, 2, 24);
+      cx.fillStyle = '#222622';
+      cx.fillRect(0, 24, 64, 40);
+      cx.fillStyle = '#171a17';
+      cx.fillRect(0, 24, 64, 4);
+      cx.fillRect(0, 48, 64, 2);
+      cx.fillStyle = '#d69772';
+      cx.fillRect(44, 46, 16, 18);
+      cx.fillStyle = '#ba7b56';
+      cx.fillRect(44, 46, 16, 2);
+      cx.fillRect(44, 46, 2, 18);
+      const t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    };
+
+    const createSkinTexture = (): THREE.CanvasTexture => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+      cx.fillStyle = '#d69772';
+      cx.fillRect(0, 0, 64, 64);
+      cx.fillStyle = '#c78663';
+      for (let i = 0; i < 64; i += 8) {
+        for (let j = 0; j < 64; j += 8) {
+          if ((i + j) % 16 === 0) cx.fillRect(i, j, 4, 4);
+        }
+      }
+      const t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    };
+
+    const createFabricTexture = (color1: string, color2: string): THREE.CanvasTexture => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const cx = c.getContext('2d')!;
+      cx.fillStyle = color1;
+      cx.fillRect(0, 0, 64, 64);
+      cx.fillStyle = color2;
+      for (let i = 0; i < 64; i += 8) cx.fillRect(i, 0, 4, 64);
+      const t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    };
 
     const blockMaterial = new THREE.MeshLambertMaterial({ map: createFloorTexture() });
     const blockGeometry = new THREE.BoxGeometry(1, 1, 1);
@@ -277,7 +369,74 @@ export const SandboxScreen: React.FC = () => {
     };
   }, []);
 
-  const handleJumpOrToggleFly = () => {
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const isLeft = touch.clientX < window.innerWidth / 2;
+
+      if (isLeft && joystickTouchIdRef.current === null) {
+        joystickTouchIdRef.current = touch.identifier;
+        joystickStartRef.current = { x: touch.clientX, y: touch.clientY };
+        setIsJoystickActive(true);
+        setJoystickThumb({ x: 0, y: 0 });
+      } else if (!isLeft && lookTouchIdRef.current === null) {
+        lookTouchIdRef.current = touch.identifier;
+        lookLastPosRef.current = { x: touch.clientX, y: touch.clientY };
+      }
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+
+      if (touch.identifier === joystickTouchIdRef.current) {
+        const dx = touch.clientX - joystickStartRef.current.x;
+        const dy = touch.clientY - joystickStartRef.current.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxDist = 45;
+
+        const clampedDist = Math.min(dist, maxDist);
+        const angle = Math.atan2(dy, dx);
+
+        const thumbX = Math.cos(angle) * clampedDist;
+        const thumbY = Math.sin(angle) * clampedDist;
+
+        setJoystickThumb({ x: thumbX, y: thumbY });
+        moveVectorRef.current.x = thumbX / maxDist;
+        moveVectorRef.current.z = thumbY / maxDist;
+      } else if (touch.identifier === lookTouchIdRef.current) {
+        const dx = touch.clientX - lookLastPosRef.current.x;
+        const dy = touch.clientY - lookLastPosRef.current.y;
+        lookLastPosRef.current = { x: touch.clientX, y: touch.clientY };
+
+        cameraAnglesRef.current.yaw -= dx * 0.005;
+        cameraAnglesRef.current.pitch = Math.max(
+          -Math.PI / 2.2,
+          Math.min(Math.PI / 2.2, cameraAnglesRef.current.pitch - dy * 0.005)
+        );
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+
+      if (touch.identifier === joystickTouchIdRef.current) {
+        joystickTouchIdRef.current = null;
+        setIsJoystickActive(false);
+        setJoystickThumb({ x: 0, y: 0 });
+        moveVectorRef.current.x = 0;
+        moveVectorRef.current.z = 0;
+      } else if (touch.identifier === lookTouchIdRef.current) {
+        lookTouchIdRef.current = null;
+      }
+    }
+  };
+
+  const triggerJumpOrToggleFlight = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
     const now = performance.now();
     const timeSinceLastTap = now - lastJumpTapRef.current;
 
@@ -294,32 +453,133 @@ export const SandboxScreen: React.FC = () => {
     }
   };
 
+  const overlayTouchStyle: React.CSSProperties = {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 10,
+    touchAction: 'none',
+  };
+
+  const joystickBaseStyle: React.CSSProperties = {
+    position: 'fixed',
+    bottom: '36px',
+    left: '36px',
+    width: '110px',
+    height: '110px',
+    borderRadius: '50%',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    backdropFilter: 'blur(3px)',
+    border: '2px solid rgba(255, 255, 255, 0.65)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    pointerEvents: 'none',
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+  };
+
+  const joystickKnobStyle: React.CSSProperties = {
+    width: '46px',
+    height: '46px',
+    borderRadius: '50%',
+    backgroundColor: isJoystickActive ? '#ffffff' : 'rgba(255, 255, 255, 0.85)',
+    transform: `translate(${joystickThumb.x}px, ${joystickThumb.y}px)`,
+    transition: isJoystickActive ? 'none' : 'transform 0.15s ease-out',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+  };
+
+  const controlsContainerStyle: React.CSSProperties = {
+    position: 'fixed',
+    bottom: '36px',
+    right: '30px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    zIndex: 50,
+    pointerEvents: 'auto',
+  };
+
+  const btnStyle: React.CSSProperties = {
+    width: '56px',
+    height: '56px',
+    borderRadius: '50%',
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    backdropFilter: 'blur(4px)',
+    border: '2px solid rgba(255, 255, 255, 0.85)',
+    color: '#ffffff',
+    fontSize: '22px',
+    fontWeight: 900,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    userSelect: 'none',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+    textShadow: '0 1px 3px rgba(0, 0, 0, 0.35)',
+  };
+
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: '#b8dcfa', overflow: 'hidden' }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
 
-      <TouchControls
-        isFlying={isFlying}
-        onMove={(x, z) => {
-          moveVectorRef.current.x = x;
-          moveVectorRef.current.z = z;
-        }}
-        onLook={(dx, dy) => {
-          cameraAnglesRef.current.yaw -= dx * 0.005;
-          cameraAnglesRef.current.pitch = Math.max(
-            -Math.PI / 2.2,
-            Math.min(Math.PI / 2.2, cameraAnglesRef.current.pitch - dy * 0.005)
-          );
-        }}
-        onJumpOrToggleFly={handleJumpOrToggleFly}
-        onFlyVertical={(dir) => {
-          moveVectorRef.current.y = dir;
-        }}
-        onStopFly={() => {
-          setIsFlying(false);
-          moveVectorRef.current.y = 0;
-        }}
+      <div
+        style={overlayTouchStyle}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       />
+
+      <div style={joystickBaseStyle}>
+        <div style={joystickKnobStyle} />
+      </div>
+
+      <div style={controlsContainerStyle}>
+        {isFlying ? (
+          <>
+            <div
+              style={btnStyle}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                moveVectorRef.current.y = 1;
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                moveVectorRef.current.y = 0;
+              }}
+            >
+              ▲
+            </div>
+            <div
+              style={btnStyle}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                moveVectorRef.current.y = -1;
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                moveVectorRef.current.y = 0;
+              }}
+            >
+              ▼
+            </div>
+            <div
+              style={{ ...btnStyle, fontSize: '11px', height: '36px', borderRadius: '18px' }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                setIsFlying(false);
+                moveVectorRef.current.y = 0;
+              }}
+            >
+              СТОП
+            </div>
+          </>
+        ) : (
+          <div style={btnStyle} onTouchStart={triggerJumpOrToggleFlight}>
+            ▲
+          </div>
+        )}
+      </div>
 
       <Hotbar />
     </div>
