@@ -462,7 +462,7 @@ export const SandboxScreen: React.FC = () => {
     }
   };
 
-  const triggerJumpOrToggleFlight = (e: React.TouchEvent | React.MouseEvent) => {
+  const triggerJumpOrToggleFlight = (e: React.TouchEvent) => {
     e.stopPropagation();
     const now = performance.now();
     const timeSinceLastTap = now - lastJumpTapRef.current;
@@ -567,25 +567,3 @@ export const SandboxScreen: React.FC = () => {
             <div
               style={roundActionButtonStyle}
               onTouchStart={(e) => {
-                e.stopPropagation();
-                moveVectorRef.current.y = 1;
-              }}
-              onTouchEnd={(e) => {
-                e.stopPropagation();
-                moveVectorRef.current.y = 0;
-              }}
-            >
-              ▲
-            </div>
-            <div
-              style={roundActionButtonStyle}
-              onTouchStart={(e) => {
-                e.stopPropagation();
-                moveVectorRef.current.y = -1;
-              }}
-              onTouchEnd={(e) => {
-                e.stopPropagation();
-                moveVectorRef.current.y = 0;
-              }}
-            >
-              ▼
