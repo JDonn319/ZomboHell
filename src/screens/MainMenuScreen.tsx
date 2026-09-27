@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { Volume2, VolumeX, Globe } from 'lucide-react';
 
 export const MainMenuScreen: React.FC = () => {
   const [isMuted, setIsMuted] = useState(false);
+  const [activeButton, setActiveButton] = useState<'play' | 'hangar' | 'leaders'>('play');
 
   const containerStyle: React.CSSProperties = {
     position: 'fixed',
@@ -16,46 +18,69 @@ export const MainMenuScreen: React.FC = () => {
 
   const topBarRightStyle: React.CSSProperties = {
     position: 'absolute',
-    top: '20px',
-    right: '24px',
+    top: '18px',
+    right: '22px',
     display: 'flex',
-    gap: '10px',
+    gap: '8px',
     zIndex: 10,
   };
 
   const iconSquareButtonStyle: React.CSSProperties = {
-    width: '42px',
-    height: '36px',
-    backgroundColor: 'rgba(10, 18, 8, 0.7)',
-    border: '1px solid #33531e',
+    minWidth: '40px',
+    height: '34px',
+    padding: '0 8px',
+    backgroundColor: 'rgba(9, 15, 7, 0.85)',
+    border: '1px solid #2d451b',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: '4px',
     cursor: 'pointer',
-    color: '#8bc34a',
-    fontSize: '18px',
+    color: '#7ba849',
+    fontSize: '12px',
+    fontWeight: 800,
     letterSpacing: '0.1em',
   };
 
+  const logoSectionStyle: React.CSSProperties = {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '10px',
+  };
+
+  const ambientGlowStyle: React.CSSProperties = {
+    position: 'absolute',
+    width: '420px',
+    height: '200px',
+    background: 'radial-gradient(circle, rgba(58, 97, 27, 0.5) 0%, rgba(58, 97, 27, 0) 70%)',
+    filter: 'blur(32px)',
+    pointerEvents: 'none',
+  };
+
   const logoStyle: React.CSSProperties = {
-    width: 'min(380px, 46vw)',
-    maxHeight: '160px',
+    width: 'min(370px, 45vw)',
+    maxHeight: '145px',
     objectFit: 'contain',
-    marginBottom: '26px',
-    filter: 'drop-shadow(0 0 35px rgba(92, 148, 52, 0.4))',
+    position: 'relative',
+    zIndex: 1,
   };
 
   const buttonListStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
-    width: 'min(520px, 66vw)',
+    gap: '8px',
+    width: 'min(500px, 64vw)',
+    marginTop: '22px',
+    position: 'relative',
+    zIndex: 2,
   };
 
-  const primaryButtonStyle: React.CSSProperties = {
-    height: '46px',
-    border: '1px solid #689f38',
-    backgroundColor: '#2e4a19',
+  const activeButtonStyle: React.CSSProperties = {
+    height: '38px',
+    border: '1px solid #6fa839',
+    backgroundColor: '#294317',
     backgroundImage: `
       repeating-linear-gradient(
         to bottom,
@@ -64,33 +89,35 @@ export const MainMenuScreen: React.FC = () => {
         transparent 2px,
         transparent 4px
       ),
-      linear-gradient(180deg, #3f6623 0%, #1f3311 100%)
+      linear-gradient(180deg, #3c6122 0%, #1c2e10 100%)
     `,
     color: '#ffffff',
-    fontSize: '24px',
-    letterSpacing: '0.25em',
+    fontSize: '14px',
+    fontWeight: 900,
+    letterSpacing: '0.24em',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
   };
 
-  const secondaryButtonStyle: React.CSSProperties = {
-    height: '46px',
-    border: '1px solid #283e17',
-    backgroundColor: 'rgba(10, 18, 8, 0.75)',
+  const inactiveButtonStyle: React.CSSProperties = {
+    height: '38px',
+    border: '1px solid #233615',
+    backgroundColor: 'rgba(9, 15, 7, 0.8)',
     backgroundImage: `
       repeating-linear-gradient(
         to bottom,
-        rgba(255, 255, 255, 0.04) 0px,
-        rgba(255, 255, 255, 0.04) 2px,
+        rgba(255, 255, 255, 0.03) 0px,
+        rgba(255, 255, 255, 0.03) 2px,
         transparent 2px,
         transparent 4px
       )
     `,
-    color: '#558231',
-    fontSize: '24px',
-    letterSpacing: '0.25em',
+    color: '#496d2b',
+    fontSize: '14px',
+    fontWeight: 900,
+    letterSpacing: '0.24em',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -99,11 +126,12 @@ export const MainMenuScreen: React.FC = () => {
 
   const versionStyle: React.CSSProperties = {
     position: 'absolute',
-    bottom: '16px',
-    right: '24px',
-    color: '#2d471b',
-    fontSize: '16px',
-    letterSpacing: '0.2em',
+    bottom: '14px',
+    right: '22px',
+    color: '#263b17',
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '0.18em',
   };
 
   const dustStyle = (top: string, left: string, size: string, opacity: number): React.CSSProperties => ({
@@ -113,31 +141,52 @@ export const MainMenuScreen: React.FC = () => {
     width: size,
     height: size,
     borderRadius: '50%',
-    backgroundColor: '#8bc34a',
+    backgroundColor: '#7ba849',
     opacity,
     pointerEvents: 'none',
   });
 
   return (
     <div style={containerStyle}>
-      <div style={dustStyle('18%', '14%', '3px', 0.25)} />
-      <div style={dustStyle('72%', '10%', '2px', 0.2)} />
-      <div style={dustStyle('30%', '82%', '3px', 0.3)} />
-      <div style={dustStyle('68%', '88%', '2px', 0.15)} />
+      <div style={dustStyle('15%', '12%', '3px', 0.2)} />
+      <div style={dustStyle('74%', '8%', '2px', 0.15)} />
+      <div style={dustStyle('28%', '85%', '3px', 0.25)} />
+      <div style={dustStyle('65%', '91%', '2px', 0.15)} />
 
       <div style={topBarRightStyle}>
-        <div style={iconSquareButtonStyle}>RU</div>
+        <div style={iconSquareButtonStyle}>
+          <Globe size={15} strokeWidth={2.2} />
+          <span>RU</span>
+        </div>
         <div style={iconSquareButtonStyle} onClick={() => setIsMuted(!isMuted)}>
-          {isMuted ? '✕' : '🔊'}
+          {isMuted ? <VolumeX size={16} strokeWidth={2.2} /> : <Volume2 size={16} strokeWidth={2.2} />}
         </div>
       </div>
 
-      <img src="/gamelogo.png" alt="7Days-ZDays Logo" style={logoStyle} />
+      <div style={logoSectionStyle}>
+        <div style={ambientGlowStyle} />
+        <img src="/gamelogo.png" alt="7Days-ZDays Logo" style={logoStyle} />
+      </div>
 
       <div style={buttonListStyle}>
-        <div style={primaryButtonStyle}>ИГРАТЬ</div>
-        <div style={secondaryButtonStyle}>СКЛАД</div>
-        <div style={secondaryButtonStyle}>ЛИДЕРЫ</div>
+        <div
+          style={activeButton === 'play' ? activeButtonStyle : inactiveButtonStyle}
+          onClick={() => setActiveButton('play')}
+        >
+          ИГРАТЬ
+        </div>
+        <div
+          style={activeButton === 'hangar' ? activeButtonStyle : inactiveButtonStyle}
+          onClick={() => setActiveButton('hangar')}
+        >
+          СКЛАД
+        </div>
+        <div
+          style={activeButton === 'leaders' ? activeButtonStyle : inactiveButtonStyle}
+          onClick={() => setActiveButton('leaders')}
+        >
+          ЛИДЕРЫ
+        </div>
       </div>
 
       <div style={versionStyle}>ALPHA v0.1.0</div>
